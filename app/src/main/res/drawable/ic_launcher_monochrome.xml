@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer Double-Capsule Stadium Frame Outline -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="3.5"
+        android:pathData="M37,35L71,35A19,19 0,0 1,90 54A19,19 0,0 1,71 73L37,73A19,19 0,0 1,18 54A19,19 0,0 1,37 35Z" />
+
+    <!-- Google 'G' inside left half -->
+    <group
+        android:translateX="28"
+        android:translateY="44.6"
+        android:scaleX="0.78"
+        android:scaleY="0.78">
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M21.6,12.23c0,-0.71 -0.06,-1.4 -0.18,-2.05H12v3.88h5.38c-0.23,1.25 -0.94,2.31 -2,3.02v2.51h3.24c1.89,-1.74 2.98,-4.3 2.98,-7.36zM12,22c2.7,0 4.96,-0.9 6.62,-2.42l-3.24,-2.51c-0.9,0.6 -2.04,0.95 -3.38,0.95 -2.6,0 -4.8,-1.76 -5.58,-4.12H3.07v2.59C4.72,19.76 8.09,22 12,22zM6.42,13.9c-0.2,-0.6 -0.31,-1.24 -0.31,-1.9s0.11,-1.3 0.31,-1.9V7.51H3.07C2.39,8.86 2,10.39 2,12s0.39,3.14 1.07,4.49l3.35,-2.59zM12,5.98c1.47,0 2.79,0.5 3.82,1.5l2.87,-2.87C16.96,2.99 14.7,2 12,2 8.09,2 4.72,4.24 3.07,7.51l3.35,2.59c0.78,-2.36 2.98,-4.12 5.58,-4.12z" />
+    </group>
+
+    <!-- AI Mode Sparkle + Magnifier inside right half -->
+    <group
+        android:translateX="61"
+        android:translateY="44.4"
+        android:scaleX="0.80"
+        android:scaleY="0.80">
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M7,2C7,5.2 9.3,7.5 12.5,7.5C9.3,7.5 7,9.8 7,13C7,9.8 4.7,7.5 1.5,7.5C4.7,7.5 7,5.2 7,2ZM16.36,14.76A5.5,5.5 0,0 0,13.5 6.08V8.42A3.5,3.5 0,1 1,8.42 13.5H6.08A5.5,5.5 0,0 0,14.76 16.36L19.1,20.7L20.7,19.1L16.36,14.76Z" />
+    </group>
+</vector>
+

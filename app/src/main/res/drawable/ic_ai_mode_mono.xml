@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Fragment 1: 4-point AI Sparkle in top-right sector (Luminous Secondary -> Primary gradient) -->
+    <path
+        android:pathData="M17,1.8 L18.15,5.35 L21.7,6.5 L18.15,7.65 L17,11.2 L15.85,7.65 L12.3,6.5 L15.85,5.35 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="13"
+                android:startY="2"
+                android:endX="21"
+                android:endY="11"
+                android:type="linear">
+                <item android:offset="0.0" android:color="@color/widget_icon_secondary" />
+                <item android:offset="1.0" android:color="@color/widget_icon_primary" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Fragment 2: Lower lens arc of magnifying glass (Soft Tertiary -> Secondary shimmer) -->
+    <path
+        android:pathData="M10.5,15.8 C7.57,15.8 5.2,13.43 5.2,10.5 H3 C3,14.64 6.36,18 10.5,18 C12.45,18 14.22,17.25 15.56,16.03 C16.65,15.03 17.44,13.69 17.78,12.18 H15.52 C14.82,14.28 12.84,15.8 10.5,15.8 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="3"
+                android:startY="11"
+                android:endX="17.5"
+                android:endY="17"
+                android:type="linear">
+                <item android:offset="0.0" android:color="@color/widget_icon_tertiary" />
+                <item android:offset="1.0" android:color="@color/widget_icon_secondary" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Fragment 3: Upper-left arc of magnifying glass (Deep Primary tone) -->
+    <path
+        android:fillColor="@color/widget_icon_deep"
+        android:pathData="M10.5,5.2 C11.12,5.2 11.71,5.31 12.26,5.51 L13.78,3.99 C12.79,3.36 11.68,3 10.5,3 C6.36,3 3,6.36 3,10.5 H5.2 C5.2,7.57 7.57,5.2 10.5,5.2 Z" />
+    <!-- Fragment 4: Magnifying glass handle (Primary -> Deep gradient) -->
+    <path
+        android:pathData="M16.1,14.5 L21.1,19.5 L19.5,21.1 L14.5,16.1 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="14.5"
+                android:startY="14.5"
+                android:endX="21"
+                android:endY="21"
+                android:type="linear">
+                <item android:offset="0.0" android:color="@color/widget_icon_tertiary" />
+                <item android:offset="1.0" android:color="@color/widget_icon_deep" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

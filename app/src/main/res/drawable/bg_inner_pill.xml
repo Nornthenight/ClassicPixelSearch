@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <!-- 44dp height -> exact concentric radius 22dp (31dp - 9dp = 22dp) -->
+    <corners android:radius="22dp" />
+    <solid android:color="@color/widget_inner_pill_bg" />
+</shape>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Fragment 1: Microphone capsule (Gradient from luminous secondary to primary) -->
+    <path
+        android:pathData="M12,14c1.66,0 3,-1.34 3,-3V5c0,-1.66 -1.34,-3 -3,-3S9,3.34 9,5v6c0,1.66 1.34,3 3,3z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="12"
+                android:startY="2"
+                android:endX="12"
+                android:endY="14"
+                android:type="linear">
+                <item android:offset="0.0" android:color="@color/widget_icon_secondary" />
+                <item android:offset="1.0" android:color="@color/widget_icon_primary" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Fragment 2: Left U-cradle arm (Tertiary rose-coral accent, matching fragmented reference style) -->
+    <path
+        android:fillColor="@color/widget_icon_tertiary"
+        android:pathData="M7,11H5c0,3.53 2.61,6.43 6,6.92V15.9C8.72,15.44 7,13.42 7,11z" />
+    <!-- Fragment 3: Right U-cradle arm & vertical stem (Deep primary tone) -->
+    <path
+        android:fillColor="@color/widget_icon_deep"
+        android:pathData="M17,11c0,2.76 -2.24,5 -5,5v2h-1v3h2v-3.08c3.39,-0.49 6,-3.39 6,-6.92h-2z" />
+</vector>

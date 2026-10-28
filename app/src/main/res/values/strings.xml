@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pixel Search Dock</string>
+    <string name="widget_name">Pixel Search (Double Frame + AI)</string>
+    <string name="widget_description">Classic Pixel search bar with concentric double frame, Gemini shortcut, AI Mode button, and native dock replacement</string>
+
+    <string name="cd_google_search">Google App</string>
+    <string name="cd_voice_search">Voice Search</string>
+    <string name="cd_gemini_app">Gemini App</string>
+    <string name="cd_ai_mode">Google Search AI Mode</string>
+
+    <string name="settings_title">Pixel Search Dock</string>
+    <string name="settings_subtitle">Customize your home screen dock search bar</string>
+
+    <string name="preview_label">LIVE WIDGET PREVIEW</string>
+
+    <string name="section_system_status">SYSTEM &amp; SHIZUKU STATUS</string>
+    <string name="label_shizuku_status">Shizuku Status</string>
+    <string name="label_write_secure_status">WRITE_SECURE_SETTINGS</string>
+    <string name="label_a11y_status">All Apps Search Service</string>
+    <string name="btn_request_shizuku">Request Shizuku Permission</string>
+
+    <string name="section_dock_integration">DOCK INTEGRATION</string>
+    <string name="option_replace_dock">Replace Native Pixel Launcher Dock</string>
+    <string name="option_replace_dock_desc">Mounts this widget directly inside the bottom search dock via WRITE_SECURE_SETTINGS</string>
+
+    <string name="section_frame_color">OUTER FRAME &amp; SURFACE CONTRAST</string>
+    <string name="frame_style_deep">Deep Ring (Matches Suggested Apps)</string>
+    <string name="frame_style_pastel">Soft Pastel Frame</string>
+    <string name="frame_style_rich">Bold Accent Frame</string>
+
+    <string name="section_icon_color">ICON COLOR FRAGMENTATION</string>
+    <string name="icon_style_ref">Adaptive + Emerald Shimmer (Reference)</string>
+    <string name="icon_style_mono">Dynamic Multi-Tone (Material You)</string>
+    <string name="icon_style_color">Classic 4-Color Google</string>
+
+    <string name="section_appearance">APPEARANCE</string>
+    <string name="option_opacity">Widget Opacity</string>
+
+    <string name="btn_add_widget">Pin as Standalone Widget</string>
+    <string name="btn_save">Apply &amp; Update Dock</string>
+    <string name="accessibility_service_description">Enables seamless Google OneSearch in Pixel Launcher drawer while preserving the custom dock search bar.</string>
+</resources>

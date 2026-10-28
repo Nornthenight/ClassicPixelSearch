@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- AI Mode Icon (Adaptive + Emerald Teal Reference Style — exact match to ref_right_corner_8x.png) -->
+    <!-- 4-point star in top-right: Vivid Emerald Teal -->
+    <path
+        android:fillColor="@color/ref_teal_vivid"
+        android:pathData="M17,1.8 L18.15,5.35 L21.7,6.5 L18.15,7.65 L17,11.2 L15.85,7.65 L12.3,6.5 L15.85,5.35 Z" />
+    <!-- Lower lens arc: Soft Emerald Teal -->
+    <path
+        android:fillColor="@color/ref_teal_soft"
+        android:pathData="M10.5,15.8 C7.57,15.8 5.2,13.43 5.2,10.5 H3 C3,14.64 6.36,18 10.5,18 C12.45,18 14.22,17.25 15.56,16.03 C16.65,15.03 17.44,13.69 17.78,12.18 H15.52 C14.82,14.28 12.84,15.8 10.5,15.8 Z" />
+    <!-- Upper-left lens arc: Theme Deep Primary -->
+    <path
+        android:fillColor="@color/widget_icon_deep"
+        android:pathData="M10.5,5.2 C11.12,5.2 11.71,5.31 12.26,5.51 L13.78,3.99 C12.79,3.36 11.68,3 10.5,3 C6.36,3 3,6.36 3,10.5 H5.2 C5.2,7.57 7.57,5.2 10.5,5.2 Z" />
+    <!-- Handle: Theme Primary/Tertiary -->
+    <path
+        android:fillColor="@color/widget_icon_primary"
+        android:pathData="M16.1,14.5 L21.1,19.5 L19.5,21.1 L14.5,16.1 Z" />
+</vector>
+

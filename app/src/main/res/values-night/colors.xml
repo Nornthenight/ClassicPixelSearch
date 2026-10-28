@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark Theme (Material You Dynamic Colors matching warm wallpaper & suggested app rings) -->
+    <!-- Outer frame styles:
+         Default: @android:color/system_accent2_300 (#CDA470 on gold wallpaper)
+         Matches the exact ring color of Pixel Launcher's PredictedAppIcon and themed cards -->
+    <color name="widget_outer_pill_bg">@android:color/system_accent2_300</color>
+    <color name="widget_outer_pill_pastel">@android:color/system_accent2_600</color>
+    <color name="widget_outer_pill_rich">@android:color/system_accent1_200</color>
+
+    <!-- Inner capsule and AI button surface: Warm dark cocoa tone matching themed app icon circles (#3E2D16) -->
+    <color name="widget_inner_pill_bg">@android:color/system_accent2_800</color>
+
+    <!-- Dynamic Multi-Tone Icon Palette -->
+    <color name="widget_icon_deep">@android:color/system_accent1_200</color>
+    <color name="widget_icon_primary">@android:color/system_accent1_300</color>
+    <color name="widget_icon_secondary">@android:color/system_accent1_400</color>
+    <color name="widget_icon_tertiary">@android:color/system_accent3_300</color>
+
+    <!-- Reference Rose & Emerald Teal Palette -->
+    <color name="ref_plum_deep">#E68AB8</color>
+    <color name="ref_rose_mid">#C48BA6</color>
+    <color name="ref_teal_vivid">#26A69A</color>
+    <color name="ref_teal_soft">#80CBC4</color>
+
+    <color name="widget_hint_text">@android:color/system_neutral2_300</color>
+</resources>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light Theme (Material You Dynamic Colors) -->
+    <!-- Outer frame styles -->
+    <!-- Default: Deep warm ring matching Pixel Launcher suggested app rings (#D3A262 on gold wallpaper) -->
+    <color name="widget_outer_pill_bg">@android:color/system_accent2_300</color>
+    <color name="widget_outer_pill_pastel">@android:color/system_accent1_200</color>
+    <color name="widget_outer_pill_rich">@android:color/system_accent1_400</color>
+
+    <!-- Inner capsule and AI button surface (crisp bright cream-white for clear contrast against frame) -->
+    <color name="widget_inner_pill_bg">@android:color/system_neutral1_10</color>
+
+    <!-- Dynamic Multi-Tone Icon Palette (4 distinct shades for vivid fragmented transitions) -->
+    <color name="widget_icon_deep">@android:color/system_accent1_800</color>
+    <color name="widget_icon_primary">@android:color/system_accent1_600</color>
+    <color name="widget_icon_secondary">@android:color/system_accent1_400</color>
+    <color name="widget_icon_tertiary">@android:color/system_accent3_400</color>
+
+    <!-- Reference Rose & Emerald Teal Palette (from reference screenshot) -->
+    <color name="ref_plum_deep">#7A2853</color>
+    <color name="ref_rose_mid">#A86484</color>
+    <color name="ref_teal_vivid">#008975</color>
+    <color name="ref_teal_soft">#5BA499</color>
+
+    <color name="widget_hint_text">@android:color/system_neutral2_600</color>
+</resources>

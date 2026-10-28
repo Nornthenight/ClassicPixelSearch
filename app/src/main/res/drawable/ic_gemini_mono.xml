@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Fragmented Gemini Sparkle Icon (Dynamic Material You Multi-Tone Shimmer) -->
+    <!-- Upper-right half of the main Gemini 4-point curved star -->
+    <path
+        android:pathData="M12,2 C12.4,7.2 16.8,11.6 22,12 C16.8,12.4 12.4,16.8 12,22 L12,2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="12"
+                android:startY="2"
+                android:endX="22"
+                android:endY="18"
+                android:type="linear">
+                <item android:offset="0.0" android:color="@color/widget_icon_secondary" />
+                <item android:offset="0.5" android:color="@color/widget_icon_tertiary" />
+                <item android:offset="1.0" android:color="@color/widget_icon_deep" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Lower-left half of the main Gemini 4-point curved star -->
+    <path
+        android:pathData="M12,2 C11.6,7.2 7.2,11.6 2,12 C7.2,12.4 11.6,16.8 12,22 L12,2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="2"
+                android:startY="12"
+                android:endX="12"
+                android:endY="22"
+                android:type="linear">
+                <item android:offset="0.0" android:color="@color/widget_icon_deep" />
+                <item android:offset="0.6" android:color="@color/widget_icon_primary" />
+                <item android:offset="1.0" android:color="@color/widget_icon_tertiary" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
+

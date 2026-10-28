@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Outer wide stadium capsule:
+         Height = 62dp (R_outer = 31dp).
+         Inner elements height = 44dp (R_inner = 22dp).
+         Vertical frame = (62 - 44)/2 = 9dp.
+         Horizontal margins = 9dp (left, middle gap, right).
+         Concentricity: R_inner (22dp) + Frame (9dp) = R_outer (31dp). -->
+    <LinearLayout
+        android:id="@+id/search_outer_container"
+        android:layout_width="match_parent"
+        android:layout_height="62dp"
+        android:layout_gravity="center_vertical"
+        android:background="@drawable/bg_outer_pill"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- Inner search capsule (Google G + Search Field + Voice Mic + Gemini App) -->
+        <LinearLayout
+            android:id="@+id/search_pill_container"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="9dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_inner_pill"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="13dp"
+            android:paddingEnd="9dp">
+
+            <!-- Google "G" Icon (opens main Google App home feed) -->
+            <ImageView
+                android:id="@+id/img_google_logo"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:contentDescription="@string/cd_google_search"
+                android:padding="3dp"
+                android:src="@drawable/ic_google_logo_ref" />
+
+            <!-- Main clickable search bar text area (opens Google text search input) -->
+            <TextView
+                android:id="@+id/search_touch_area"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:paddingStart="10dp"
+                android:paddingEnd="6dp"
+                android:text=""
+                android:textColor="@color/widget_hint_text"
+                android:textSize="16sp" />
+
+            <!-- Voice Search Button (Microphone -> classic GSA voice search) -->
+            <ImageView
+                android:id="@+id/btn_voice_search"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:contentDescription="@string/cd_voice_search"
+                android:padding="6dp"
+                android:src="@drawable/ic_mic_ref" />
+
+            <!-- Gemini App Button (Sparkle -> opens standalone Gemini App, not Assistant overlay) -->
+            <ImageView
+                android:id="@+id/btn_lens_search"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="4dp"
+                android:contentDescription="@string/cd_gemini_app"
+                android:padding="6dp"
+                android:src="@drawable/ic_gemini_ref" />
+
+        </LinearLayout>
+
+        <!-- Separate circular AI Mode button on the right (44x44dp, 9dp start & 9dp end margin) -->
+        <ImageView
+            android:id="@+id/btn_ai_mode"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="9dp"
+            android:layout_marginEnd="9dp"
+            android:background="@drawable/bg_ai_circle"
+            android:contentDescription="@string/cd_ai_mode"
+            android:padding="10dp"
+            android:src="@drawable/ic_ai_mode_ref" />
+
+    </LinearLayout>
+
+</FrameLayout>

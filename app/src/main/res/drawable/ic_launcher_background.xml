@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Deep rich slate-teal base -->
+    <path
+        android:fillColor="#111C1A"
+        android:pathData="M0,0h108v108h-108z" />
+
+    <!-- Subtle inner tonal glow circle within adaptive safe zone -->
+    <path
+        android:fillColor="#1A2C29"
+        android:pathData="M54,16A38,38 0,1 1,54 92A38,38 0,1 1,54 16Z" />
+</vector>
+
