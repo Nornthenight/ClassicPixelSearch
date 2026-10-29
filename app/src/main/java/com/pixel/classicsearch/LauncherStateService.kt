@@ -36,6 +36,8 @@ class LauncherStateService : AccessibilityService() {
     private var pendingResetRunnable: Runnable? = null
     private var wallpaperReceiver: BroadcastReceiver? = null
     private var colorsChangedListener: WallpaperManager.OnColorsChangedListener? = null
+    private var themeCustomizationObserver: android.database.ContentObserver? = null
+    @Volatile private var lastKnownThemeCustomization: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -53,6 +55,35 @@ class LauncherStateService : AccessibilityService() {
                 AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         info.notificationTimeout = 30
         serviceInfo = info
+
+        // Register ContentObserver on theme_customization_overlay_packages
+        // This fires reliably on modern Android whenever the user sets a new wallpaper or selects a color palette in Wallpaper & style
+        try {
+            lastKnownThemeCustomization = Settings.Secure.getString(
+                contentResolver,
+                "theme_customization_overlay_packages"
+            )
+            val observer = object : android.database.ContentObserver(mainHandler) {
+                override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
+                    val newTheme = Settings.Secure.getString(
+                        contentResolver,
+                        "theme_customization_overlay_packages"
+                    )
+                    Log.i(TAG, "Theme customization updated ($newTheme) -> refreshing widgets with new wallpaper colors")
+                    lastKnownThemeCustomization = newTheme
+                    ClassicSearchWidgetProvider.updateAllWidgets(this@LauncherStateService)
+                }
+            }
+            contentResolver.registerContentObserver(
+                Settings.Secure.getUriFor("theme_customization_overlay_packages"),
+                false,
+                observer
+            )
+            themeCustomizationObserver = observer
+            Log.i(TAG, "Registered themeCustomizationObserver successfully")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to register themeCustomizationObserver", e)
+        }
 
         // Register runtime receiver for wallpaper changes so widgets dynamically follow wallpaper
         try {
@@ -180,6 +211,19 @@ class LauncherStateService : AccessibilityService() {
                 // Switch back to Classic INSTANTLY (0ms) so dock already has ClassicPixelSearch without any flash!
                 cancelPendingReset()
                 applyEngine(ServiceHelper.CLASSIC_SEARCH_PACKAGE)
+
+                // Check if theme was updated while user was in Wallpaper & style or settings
+                try {
+                    val currentTheme = Settings.Secure.getString(
+                        contentResolver,
+                        "theme_customization_overlay_packages"
+                    )
+                    if (currentTheme != null && currentTheme != lastKnownThemeCustomization) {
+                        Log.i(TAG, "Theme updated while away -> refreshing widgets")
+                        lastKnownThemeCustomization = currentTheme
+                        ClassicSearchWidgetProvider.updateAllWidgets(this)
+                    }
+                } catch (_: Exception) {}
             }
         } else if (isAnotherAppInForeground) {
             // User opened another app -> switch to Classic instantly (0ms)
@@ -299,6 +343,10 @@ class LauncherStateService : AccessibilityService() {
 
     override fun onDestroy() {
         cancelPendingReset()
+        themeCustomizationObserver?.let {
+            try { contentResolver.unregisterContentObserver(it) } catch (_: Exception) {}
+            themeCustomizationObserver = null
+        }
         wallpaperReceiver?.let {
             try { unregisterReceiver(it) } catch (_: Exception) {}
             wallpaperReceiver = null
