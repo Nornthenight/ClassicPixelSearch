@@ -16,11 +16,11 @@
     <color name="widget_icon_secondary">@android:color/system_accent1_400</color>
     <color name="widget_icon_tertiary">@android:color/system_accent3_400</color>
 
-    <!-- Reference Rose & Emerald Teal Palette (from reference screenshot) -->
-    <color name="ref_plum_deep">#7A2853</color>
-    <color name="ref_rose_mid">#A86484</color>
-    <color name="ref_teal_vivid">#008975</color>
-    <color name="ref_teal_soft">#5BA499</color>
+    <!-- Reference Rose & Emerald Teal Palette (Dynamic Material You Tokens) -->
+    <color name="ref_plum_deep">@android:color/system_accent3_700</color>
+    <color name="ref_rose_mid">@android:color/system_accent3_400</color>
+    <color name="ref_teal_vivid">@android:color/system_accent1_600</color>
+    <color name="ref_teal_soft">@android:color/system_accent2_500</color>
 
     <color name="widget_hint_text">@android:color/system_neutral2_600</color>
 </resources>

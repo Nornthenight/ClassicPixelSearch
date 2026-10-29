@@ -66,25 +66,31 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
                     views.setInt(R.id.search_outer_container, "setBackgroundResource", R.drawable.bg_outer_pill_rich)
             }
 
-            // 2. Apply fragmented/gradient icon style
+            // 2. Apply icon style (Dynamic Monet, Original Google 4-Color, Dual-Tone Accent)
             when (WidgetPrefs.getIconStyle(context)) {
-                WidgetPrefs.ICON_ADAPTIVE_EMERALD -> {
-                    views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_ref)
-                    views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_ref)
-                    views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_ref)
-                    views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_ref)
-                }
                 WidgetPrefs.ICON_DYNAMIC_MONET -> {
                     views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_mono)
                     views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_mono)
                     views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_mono)
                     views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_mono)
                 }
-                WidgetPrefs.ICON_CLASSIC_COLOR -> {
+                WidgetPrefs.ICON_ORIGINAL_GOOGLE, WidgetPrefs.ICON_CLASSIC_COLOR -> {
                     views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_color)
                     views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_color)
                     views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_color)
                     views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_color)
+                }
+                WidgetPrefs.ICON_ADAPTIVE_EMERALD -> {
+                    views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_ref)
+                    views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_ref)
+                    views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_ref)
+                    views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_ref)
+                }
+                else -> {
+                    views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_mono)
+                    views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_mono)
+                    views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_mono)
+                    views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_mono)
                 }
             }
 

@@ -39,7 +39,7 @@
                 android:layout_height="30dp"
                 android:contentDescription="@string/cd_google_search"
                 android:padding="3dp"
-                android:src="@drawable/ic_google_logo_ref" />
+                android:src="@drawable/ic_google_logo_mono" />
 
             <!-- Main clickable search bar text area (opens Google text search input) -->
             <TextView
@@ -61,7 +61,7 @@
                 android:layout_height="36dp"
                 android:contentDescription="@string/cd_voice_search"
                 android:padding="6dp"
-                android:src="@drawable/ic_mic_ref" />
+                android:src="@drawable/ic_mic_mono" />
 
             <!-- Gemini App Button (Sparkle -> opens standalone Gemini App, not Assistant overlay) -->
             <ImageView
@@ -71,7 +71,7 @@
                 android:layout_marginStart="4dp"
                 android:contentDescription="@string/cd_gemini_app"
                 android:padding="6dp"
-                android:src="@drawable/ic_gemini_ref" />
+                android:src="@drawable/ic_gemini_mono" />
 
         </LinearLayout>
 
@@ -85,7 +85,7 @@
             android:background="@drawable/bg_ai_circle"
             android:contentDescription="@string/cd_ai_mode"
             android:padding="10dp"
-            android:src="@drawable/ic_ai_mode_ref" />
+            android:src="@drawable/ic_ai_mode_mono" />
 
     </LinearLayout>
 

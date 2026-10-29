@@ -2,6 +2,11 @@ package com.pixel.classicsearch
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.WallpaperManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -20,12 +25,17 @@ class LauncherStateService : AccessibilityService() {
         private const val ID_SEARCH_ALL_APPS = "com.google.android.apps.nexuslauncher:id/search_container_all_apps"
         private const val ID_SEARCH_RESULTS = "com.google.android.apps.nexuslauncher:id/search_results_list_view"
         private const val ID_APPS_VIEW = "com.google.android.apps.nexuslauncher:id/apps_view"
+        private const val ID_SEARCH_CONTAINER_HOTSEAT = "com.google.android.apps.nexuslauncher:id/search_container_hotseat"
+        private const val ID_HOTSEAT = "com.google.android.apps.nexuslauncher:id/hotseat"
+        private const val ID_WORKSPACE = "com.google.android.apps.nexuslauncher:id/workspace"
     }
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var currentEngine: String? = null
     private var pendingResetRunnable: Runnable? = null
+    private var wallpaperReceiver: BroadcastReceiver? = null
+    private var colorsChangedListener: WallpaperManager.OnColorsChangedListener? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -44,6 +54,34 @@ class LauncherStateService : AccessibilityService() {
         info.notificationTimeout = 30
         serviceInfo = info
 
+        // Register runtime receiver for wallpaper changes so widgets dynamically follow wallpaper
+        try {
+            val filter = IntentFilter(Intent.ACTION_WALLPAPER_CHANGED)
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    Log.i(TAG, "ACTION_WALLPAPER_CHANGED received -> updating widgets")
+                    ClassicSearchWidgetProvider.updateAllWidgets(this@LauncherStateService)
+                }
+            }
+            registerReceiver(receiver, filter)
+            wallpaperReceiver = receiver
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to register wallpaper receiver", e)
+        }
+
+        // Register OnColorsChangedListener for instant Material You Monet color adaptation
+        try {
+            val wm = getSystemService(WallpaperManager::class.java)
+            val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
+                Log.i(TAG, "Wallpaper colors changed -> updating widgets")
+                ClassicSearchWidgetProvider.updateAllWidgets(this@LauncherStateService)
+            }
+            wm?.addOnColorsChangedListener(listener, mainHandler)
+            colorsChangedListener = listener
+        } catch (e: Exception) {
+            Log.w(TAG, "Cannot register OnColorsChangedListener", e)
+        }
+
         // Make sure current state is synced
         evaluateState()
     }
@@ -53,18 +91,19 @@ class LauncherStateService : AccessibilityService() {
 
         val pkg = event.packageName?.toString()
 
-        // Fast-path: When the All Apps search input gains focus, switch to Google instantly!
+        // Fast-path: When All Apps search input gains focus or text is typed, switch to Google instantly!
         val sourceNode = try { event.source } catch (_: Exception) { null }
         val viewId = sourceNode?.viewIdResourceName
+        val hasText = !sourceNode?.text.isNullOrEmpty()
         sourceNode?.recycle()
 
-        if (event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED && viewId == ID_SEARCH_INPUT) {
+        if (viewId == ID_SEARCH_INPUT && (event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED || hasText)) {
             cancelPendingReset()
             applyEngine(ServiceHelper.GOOGLE_SEARCH_PACKAGE)
             return
         }
 
-        // Never reset when the event originates from IME, SystemUI, or search overlays
+        // Never reset when the event originates from IME, SystemUI, clipboard overlay, or search overlays
         if (isTransientOrInputPackage(pkg)) {
             return
         }
@@ -81,16 +120,17 @@ class LauncherStateService : AccessibilityService() {
             val windowList = windows
             if (windowList != null && windowList.isNotEmpty()) {
                 for (window in windowList) {
-                    if (window.type == AccessibilityWindowInfo.TYPE_APPLICATION) {
-                        val root = window.root ?: continue
-                        if (root.packageName == PIXEL_LAUNCHER_PKG) {
-                            launcherRoot = root
-                            break
-                        } else {
-                            // Another app is foreground application
-                            isAnotherAppInForeground = true
-                            root.recycle()
-                        }
+                    val root = window.root ?: continue
+                    val rootPkg = root.packageName?.toString()
+                    if (rootPkg == PIXEL_LAUNCHER_PKG) {
+                        launcherRoot = root
+                        break
+                    } else if (window.type == AccessibilityWindowInfo.TYPE_APPLICATION && !isTransientOrInputPackage(rootPkg)) {
+                        // A genuine third-party/system app is in foreground
+                        isAnotherAppInForeground = true
+                        root.recycle()
+                    } else {
+                        root.recycle()
                     }
                 }
             }
@@ -106,7 +146,7 @@ class LauncherStateService : AccessibilityService() {
                 if (activePkg == PIXEL_LAUNCHER_PKG) {
                     launcherRoot = activeRoot
                 } else if (isTransientOrInputPackage(activePkg)) {
-                    // Still in transient/input mode; do not switch
+                    // Still in transient/input mode (floating toolbar, popup, IME); do not switch
                     activeRoot.recycle()
                     return
                 } else {
@@ -117,23 +157,39 @@ class LauncherStateService : AccessibilityService() {
         }
 
         if (launcherRoot != null) {
-            val isAllAppsOrSearch = checkAllAppsActive(launcherRoot)
+            val isAllAppsActive = isAllAppsActiveOrVisible(launcherRoot)
+            val isHotseatShown = isHotseatVisible(launcherRoot)
+            val isWorkspaceShown = isWorkspaceVisible(launcherRoot)
             launcherRoot.recycle()
 
-            if (isAllAppsOrSearch) {
+            if (isAllAppsActive) {
+                // Rule 1 & 2: User is inside All Apps or opening it.
+                // NEVER switch to Classic while in All Apps (prevents clearing text / closing copy menu)!
+                // If hotseat is still momentarily visible at swipe start, delay by 90ms so the drawer covers it.
+                // If hotseat is already hidden, apply Google engine immediately (0ms).
                 cancelPendingReset()
-                applyEngine(ServiceHelper.GOOGLE_SEARCH_PACKAGE)
-            } else {
-                scheduleSwitch(ServiceHelper.CLASSIC_SEARCH_PACKAGE, delayMs = 150)
+                if (currentEngine != ServiceHelper.GOOGLE_SEARCH_PACKAGE) {
+                    if (isHotseatShown) {
+                        scheduleSwitch(ServiceHelper.GOOGLE_SEARCH_PACKAGE, delayMs = 90)
+                    } else {
+                        applyEngine(ServiceHelper.GOOGLE_SEARCH_PACKAGE)
+                    }
+                }
+            } else if (isHotseatShown || isWorkspaceShown) {
+                // Rule 3: All Apps is closed and user is back on the home screen workspace.
+                // Switch back to Classic INSTANTLY (0ms) so dock already has ClassicPixelSearch without any flash!
+                cancelPendingReset()
+                applyEngine(ServiceHelper.CLASSIC_SEARCH_PACKAGE)
             }
         } else if (isAnotherAppInForeground) {
-            // User opened another app (e.g. YouTube, Browser)
-            scheduleSwitch(ServiceHelper.CLASSIC_SEARCH_PACKAGE, delayMs = 150)
+            // User opened another app -> switch to Classic instantly (0ms)
+            cancelPendingReset()
+            applyEngine(ServiceHelper.CLASSIC_SEARCH_PACKAGE)
         }
     }
 
     private fun isTransientOrInputPackage(pkg: String?): Boolean {
-        if (pkg == null) return false
+        if (pkg == null) return true // Window events with null package are system/transient
         return pkg == "com.google.android.inputmethod.latin" ||
                 pkg == "com.android.systemui" ||
                 pkg == "android" ||
@@ -143,24 +199,24 @@ class LauncherStateService : AccessibilityService() {
                 pkg.contains("ime")
     }
 
-    private fun checkAllAppsActive(root: AccessibilityNodeInfo): Boolean {
+    private fun isAllAppsActiveOrVisible(root: AccessibilityNodeInfo): Boolean {
         // 1. Search input in All Apps drawer
         val inputNodes = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_INPUT)
-        val hasInput = inputNodes.any { it.isFocused || it.isVisibleToUser }
+        val hasInput = inputNodes.any { it.isVisibleToUser || it.isFocused }
         inputNodes.forEach { it.recycle() }
         if (hasInput) return true
 
-        // 2. Search results list view
-        val searchResults = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_RESULTS)
-        val hasResults = searchResults.any { it.isVisibleToUser }
-        searchResults.forEach { it.recycle() }
-        if (hasResults) return true
-
-        // 3. Search container for All Apps
+        // 2. Search container for All Apps
         val searchContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_ALL_APPS)
         val hasSearchContainer = searchContainers.any { it.isVisibleToUser }
         searchContainers.forEach { it.recycle() }
         if (hasSearchContainer) return true
+
+        // 3. Search results list view
+        val searchResults = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_RESULTS)
+        val hasResults = searchResults.any { it.isVisibleToUser }
+        searchResults.forEach { it.recycle() }
+        if (hasResults) return true
 
         // 4. Apps view container (present and visible when drawer is open)
         val appsViews = root.findAccessibilityNodeInfosByViewId(ID_APPS_VIEW)
@@ -169,6 +225,25 @@ class LauncherStateService : AccessibilityService() {
         if (hasAppsView) return true
 
         return false
+    }
+
+    private fun isHotseatVisible(root: AccessibilityNodeInfo): Boolean {
+        val hotseatContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_CONTAINER_HOTSEAT)
+        val hasHotseatContainer = hotseatContainers.any { it.isVisibleToUser }
+        hotseatContainers.forEach { it.recycle() }
+        if (hasHotseatContainer) return true
+
+        val hotseats = root.findAccessibilityNodeInfosByViewId(ID_HOTSEAT)
+        val hasHotseat = hotseats.any { it.isVisibleToUser }
+        hotseats.forEach { it.recycle() }
+        return hasHotseat
+    }
+
+    private fun isWorkspaceVisible(root: AccessibilityNodeInfo): Boolean {
+        val workspaceNodes = root.findAccessibilityNodeInfosByViewId(ID_WORKSPACE)
+        val hasWorkspace = workspaceNodes.any { it.isVisibleToUser }
+        workspaceNodes.forEach { it.recycle() }
+        return hasWorkspace
     }
 
     private fun cancelPendingReset() {
@@ -224,6 +299,17 @@ class LauncherStateService : AccessibilityService() {
 
     override fun onDestroy() {
         cancelPendingReset()
+        wallpaperReceiver?.let {
+            try { unregisterReceiver(it) } catch (_: Exception) {}
+            wallpaperReceiver = null
+        }
+        colorsChangedListener?.let {
+            try {
+                val wm = getSystemService(WallpaperManager::class.java)
+                wm?.removeOnColorsChangedListener(it)
+            } catch (_: Exception) {}
+            colorsChangedListener = null
+        }
         executor.shutdown()
         super.onDestroy()
         Log.i(TAG, "LauncherStateService destroyed")

@@ -109,9 +109,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         when (WidgetPrefs.getIconStyle(this)) {
-            WidgetPrefs.ICON_ADAPTIVE_EMERALD -> rgIconStyle.check(R.id.rb_icon_ref)
             WidgetPrefs.ICON_DYNAMIC_MONET -> rgIconStyle.check(R.id.rb_icon_mono)
-            WidgetPrefs.ICON_CLASSIC_COLOR -> rgIconStyle.check(R.id.rb_icon_color)
+            WidgetPrefs.ICON_ORIGINAL_GOOGLE, WidgetPrefs.ICON_CLASSIC_COLOR -> rgIconStyle.check(R.id.rb_icon_color)
+            WidgetPrefs.ICON_ADAPTIVE_EMERALD -> rgIconStyle.check(R.id.rb_icon_ref)
+            else -> rgIconStyle.check(R.id.rb_icon_mono)
         }
 
         val initialOpacity = WidgetPrefs.getOpacityPercent(this)
@@ -125,9 +126,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         fun getSelectedIconStyle(): Int = when (rgIconStyle.checkedRadioButtonId) {
-            R.id.rb_icon_mono -> WidgetPrefs.ICON_DYNAMIC_MONET
-            R.id.rb_icon_color -> WidgetPrefs.ICON_CLASSIC_COLOR
-            else -> WidgetPrefs.ICON_ADAPTIVE_EMERALD
+            R.id.rb_icon_color -> WidgetPrefs.ICON_ORIGINAL_GOOGLE
+            R.id.rb_icon_ref -> WidgetPrefs.ICON_ADAPTIVE_EMERALD
+            else -> WidgetPrefs.ICON_DYNAMIC_MONET
         }
 
         fun refreshPreview() {
@@ -138,17 +139,17 @@ class MainActivity : AppCompatActivity() {
             }
 
             when (getSelectedIconStyle()) {
-                WidgetPrefs.ICON_ADAPTIVE_EMERALD -> {
-                    previewLogo.setImageResource(R.drawable.ic_google_logo_ref)
-                    previewMic.setImageResource(R.drawable.ic_mic_ref)
-                    previewGemini.setImageResource(R.drawable.ic_gemini_ref)
-                    previewAi.setImageResource(R.drawable.ic_ai_mode_ref)
-                }
                 WidgetPrefs.ICON_DYNAMIC_MONET -> {
                     previewLogo.setImageResource(R.drawable.ic_google_logo_mono)
                     previewMic.setImageResource(R.drawable.ic_mic_mono)
                     previewGemini.setImageResource(R.drawable.ic_gemini_mono)
                     previewAi.setImageResource(R.drawable.ic_ai_mode_mono)
+                }
+                WidgetPrefs.ICON_ADAPTIVE_EMERALD -> {
+                    previewLogo.setImageResource(R.drawable.ic_google_logo_ref)
+                    previewMic.setImageResource(R.drawable.ic_mic_ref)
+                    previewGemini.setImageResource(R.drawable.ic_gemini_ref)
+                    previewAi.setImageResource(R.drawable.ic_ai_mode_ref)
                 }
                 WidgetPrefs.ICON_CLASSIC_COLOR -> {
                     previewLogo.setImageResource(R.drawable.ic_google_logo_color)
@@ -198,6 +199,10 @@ class MainActivity : AppCompatActivity() {
             try {
                 val targetValue = if (switchReplaceDock.isChecked) packageName else null
                 Settings.Secure.putString(contentResolver, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE, targetValue)
+
+                // Refresh Pixel Launcher dock immediately via Shizuku if active
+                ShizukuHelper.executePrivilegedShell("am force-stop com.google.android.apps.nexuslauncher && cmd search_ui restart 2>/dev/null")
+
                 Toast.makeText(
                     this,
                     if (switchReplaceDock.isChecked) {
@@ -310,7 +315,41 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             null
         }
-        switchReplaceDock.isChecked = (currentEngine == packageName) || currentEngine == null || currentEngine == ServiceHelper.GOOGLE_SEARCH_PACKAGE
+
+        // Auto-enable dock widget when WRITE_SECURE_SETTINGS is active if not set yet
+        if (hasWriteSecure && currentEngine == null) {
+            try {
+                Settings.Secure.putString(contentResolver, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE, packageName)
+            } catch (_: Exception) {}
+        }
+
+        switchReplaceDock.setOnCheckedChangeListener(null)
+        switchReplaceDock.isChecked = (currentEngine == packageName || (hasWriteSecure && currentEngine == null))
+        switchReplaceDock.setOnCheckedChangeListener { _, isChecked ->
+            if (!ShizukuHelper.hasWriteSecureSettings(this)) {
+                if (isChecked) {
+                    switchReplaceDock.isChecked = false
+                    Toast.makeText(
+                        this,
+                        "Grant WRITE_SECURE_SETTINGS first via Shizuku or ADB",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                return@setOnCheckedChangeListener
+            }
+            try {
+                val targetEngine = if (isChecked) packageName else null
+                Settings.Secure.putString(contentResolver, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE, targetEngine)
+                Toast.makeText(
+                    this,
+                    if (isChecked) "Classic dock search enabled!" else "Restored stock Google dock",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Failed to update engine: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         txtDockStatus.text = if (hasWriteSecure) {
             "WRITE_SECURE_SETTINGS active — Dynamic Search Sync & Classic Dock Ready"
         } else {
