@@ -4,7 +4,25 @@ A native Android dock search widget for Google Pixel devices (Pixel Launcher) th
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%2014%2B-green.svg)](https://developer.android.com)
+[![Version](https://img.shields.io/badge/Release-v1.2-brightgreen.svg)](ClassicPixelSearch-v1.2.apk)
 [![Release](https://img.shields.io/github/v/release/Nornthenight/ClassicPixelSearch)](https://github.com/Nornthenight/ClassicPixelSearch/releases)
+
+---
+
+### 📥 Download Latest APK (v1.2)
+You can download the ready-to-install APK directly from this repository:
+- **[ClassicPixelSearch-v1.2.apk](ClassicPixelSearch-v1.2.apk)** (Version 1.2, Build 3)
+
+---
+
+## What's New in Version 1.2
+
+- **Fixed Dock Widget Flashing on Slow Tap / Swipe**: Resolved an issue where slow taps or gestures caused Pixel Launcher's `OseWidgetView` to flicker through Google's stock 4-color layout and wallpaper-adaptive colors before restoring ClassicPixelSearch.
+- **Zero-Overhead Accessibility Engine**: `LauncherStateService` now listens strictly to window state transitions with `canRetrieveWindowContent="false"`, eliminating unnecessary accessibility hierarchy traversals and saving battery.
+- **Async Shizuku Execution**: Moved all privileged shell operations to background threads (`ioExecutor`), eliminating micro-stutters and ANR risks in the settings screen.
+- **Non-Destructive Service Registration**: Shizuku service helper now safely appends `LauncherStateService` to `enabled_accessibility_services`, preserving other active accessibility services (e.g. screen off widgets).
+- **Flicker-Free Search Invocation**: Configured `Theme.ClassicPixelSearch.TransparentNoAnim` with `overrideActivityTransition(0, 0)` for seamless launching of Google Search without window transition glitches.
+- **Safe Fallback Click Handlers**: Added `resolveIntentWithFallback` for all five widget targets (G logo, search bar, microphone, Gemini app, and AI mode).
 
 ---
 
@@ -64,11 +82,11 @@ The search pill dynamically matches your wallpaper and Pixel Launcher's light/da
 ## Installation & Setup
 
 ### 1. Download & Install
-Download the latest `pixelbar.apk` from the [GitHub Releases](https://github.com/Nornthenight/ClassicPixelSearch/releases) page and install it on your device.
+Download the ready-to-use **[ClassicPixelSearch-v1.2.apk](ClassicPixelSearch-v1.2.apk)** from the repository (or from [GitHub Releases](https://github.com/Nornthenight/ClassicPixelSearch/releases)) and install it on your device:
 
 ```bash
 # Or install via ADB
-adb install -r pixelbar.apk
+adb install -r ClassicPixelSearch-v1.2.apk
 ```
 
 ### 2. Configure Permissions
