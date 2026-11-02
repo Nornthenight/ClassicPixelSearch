@@ -6,12 +6,12 @@
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.intent.action.BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- Разрешаем видимость пакетов Google, Gemini, Google Lens и Shizuku для Android 11+ -->
+    <!-- Разрешаем видимость пакетов Google, Gemini, Google Lens, Pixel Launcher и Shizuku для Android 11+ -->
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
+        <package android:name="com.google.android.apps.nexuslauncher" />
         <package android:name="com.google.android.googlequicksearchbox" />
         <package android:name="com.google.android.apps.bard" />
         <package android:name="com.google.ar.lens" />
@@ -68,8 +68,9 @@
             android:excludeFromRecents="true"
             android:exported="true"
             android:launchMode="singleTask"
+            android:noHistory="true"
             android:taskAffinity="com.pixel.classicsearch.tap"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            android:theme="@style/Theme.ClassicPixelSearch.TransparentNoAnim">
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST" />
                 <category android:name="android.intent.category.DEFAULT" />

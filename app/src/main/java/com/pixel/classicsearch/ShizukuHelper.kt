@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
 import rikka.shizuku.Shizuku
+import java.util.concurrent.TimeUnit
 
 object ShizukuHelper {
     private const val TAG = "ShizukuHelper"
@@ -64,6 +65,7 @@ object ShizukuHelper {
 
     fun isAccessibilityServiceEnabled(context: Context): Boolean {
         val serviceComponent = ComponentName(context, LauncherStateService::class.java).flattenToString()
+        val shortComponent = "${context.packageName}/.LauncherStateService"
         val enabledServices = Settings.Secure.getString(
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
@@ -73,55 +75,45 @@ object ShizukuHelper {
             Settings.Secure.ACCESSIBILITY_ENABLED,
             0
         )
-        return a11yEnabled == 1 && enabledServices.contains(serviceComponent)
+        val services = enabledServices.split(':')
+        return a11yEnabled == 1 && (services.contains(serviceComponent) || services.contains(shortComponent))
     }
 
     private fun execShizukuCommand(cmd: String): Int {
+        val method = Shizuku::class.java.getDeclaredMethod(
+            "newProcess",
+            Array<String>::class.java,
+            Array<String>::class.java,
+            String::class.java
+        )
+        method.isAccessible = true
+        val process = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
         return try {
-            val method = Shizuku::class.java.getDeclaredMethod(
-                "newProcess",
-                Array<String>::class.java,
-                Array<String>::class.java,
-                String::class.java
-            )
-            method.isAccessible = true
-            val process = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
-            process.waitFor()
-        } catch (e: Throwable) {
-            Log.e(TAG, "execShizukuCommand failed", e)
-            -1
+            process.outputStream.close()
+            process.inputStream.close()
+            process.errorStream.close()
+            if (process.waitFor(5, TimeUnit.SECONDS)) {
+                process.exitValue()
+            } else {
+                process.destroyForcibly()
+                -1
+            }
+        } finally {
+            process.destroy()
         }
     }
 
-    fun executePrivilegedShell(cmd: String): Int {
-        if (!isRunning() || !isPermissionGranted()) return -1
-        return execShizukuCommand(cmd)
-    }
-
     fun grantWriteSecureSettings(context: Context): Boolean {
+        if (hasWriteSecureSettings(context)) return true
         if (!isRunning() || !isPermissionGranted()) {
             Log.w(TAG, "Cannot grant permission: Shizuku running=${isRunning()}, granted=${isPermissionGranted()}")
             return false
         }
         return try {
             val pkg = context.packageName
-            // Grant WRITE_SECURE_SETTINGS and unblock Android 13+ restricted settings for sideloaded app
-            val cmd = "pm grant $pkg android.permission.WRITE_SECURE_SETTINGS && appops set $pkg ACCESS_RESTRICTED_SETTINGS allow"
+            val cmd = "pm grant $pkg android.permission.WRITE_SECURE_SETTINGS"
             val exitCode = execShizukuCommand(cmd)
             Log.i(TAG, "Executed '$cmd', exit code: $exitCode")
-            if (exitCode == 0) {
-                // Auto-set selected_search_engine if currently unset or Google
-                try {
-                    val cr = context.contentResolver
-                    val current = Settings.Secure.getString(cr, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE)
-                    if (current == null || current == ServiceHelper.GOOGLE_SEARCH_PACKAGE) {
-                        Settings.Secure.putString(cr, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE, pkg)
-                        Log.i(TAG, "Auto-initialized selected_search_engine to $pkg")
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not auto-set selected_search_engine", e)
-                }
-            }
             exitCode == 0
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to grant WRITE_SECURE_SETTINGS via Shizuku", e)
@@ -130,21 +122,23 @@ object ShizukuHelper {
     }
 
     fun enableAccessibilityService(context: Context): Boolean {
+        if (hasWriteSecureSettings(context)) {
+            ServiceHelper.ensureAccessibilityServiceEnabled(context)
+            return isAccessibilityServiceEnabled(context)
+        }
         if (!isRunning() || !isPermissionGranted()) {
             return false
         }
         return try {
             val serviceComponent = ComponentName(context, LauncherStateService::class.java).flattenToString()
-            // Safely append to enabled_accessibility_services to preserve any other active services
-            val cmd = """
-                CURRENT=${'$'}(settings get secure enabled_accessibility_services);
-                if [ "${'$'}CURRENT" = "null" ] || [ -z "${'$'}CURRENT" ]; then
-                    settings put secure enabled_accessibility_services "$serviceComponent";
-                elif ! echo "${'$'}CURRENT" | grep -q "$serviceComponent"; then
-                    settings put secure enabled_accessibility_services "${'$'}CURRENT:$serviceComponent";
-                fi;
-                settings put secure accessibility_enabled 1
-            """.trimIndent()
+            val cr = context.contentResolver
+            val existing = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
+            val merged = existing.split(':')
+                .filter { it.isNotBlank() }
+                .toMutableSet()
+                .apply { add(serviceComponent) }
+                .joinToString(":")
+            val cmd = "settings put secure enabled_accessibility_services '$merged' && settings put secure accessibility_enabled 1"
             val exitCode = execShizukuCommand(cmd)
             Log.i(TAG, "Executed enable a11y service via Shizuku, exit code: $exitCode")
             exitCode == 0

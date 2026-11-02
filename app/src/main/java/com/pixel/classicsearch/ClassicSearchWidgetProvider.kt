@@ -7,14 +7,18 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.speech.RecognizerIntent
 import android.widget.RemoteViews
 
 class ClassicSearchWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        ServiceHelper.ensureAccessibilityServiceEnabled(context)
-        when (intent.action) {
+        val action = intent.action
+        if (action != AppWidgetManager.ACTION_APPWIDGET_UPDATE && WidgetPrefs.isReplaceDockEnabled(context)) {
+            ServiceHelper.ensureAccessibilityServiceEnabled(context)
+        }
+        when (action) {
             Intent.ACTION_CONFIGURATION_CHANGED,
             Intent.ACTION_WALLPAPER_CHANGED,
             Intent.ACTION_LOCALE_CHANGED,
@@ -29,7 +33,9 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        ServiceHelper.ensureAccessibilityServiceEnabled(context)
+        if (WidgetPrefs.isReplaceDockEnabled(context)) {
+            ServiceHelper.ensureAccessibilityServiceEnabled(context)
+        }
         for (appWidgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId)
         }
@@ -66,31 +72,25 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
                     views.setInt(R.id.search_outer_container, "setBackgroundResource", R.drawable.bg_outer_pill_rich)
             }
 
-            // 2. Apply icon style (Dynamic Monet, Original Google 4-Color, Dual-Tone Accent)
+            // 2. Apply fragmented/gradient icon style
             when (WidgetPrefs.getIconStyle(context)) {
-                WidgetPrefs.ICON_DYNAMIC_MONET -> {
-                    views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_mono)
-                    views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_mono)
-                    views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_mono)
-                    views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_mono)
-                }
-                WidgetPrefs.ICON_ORIGINAL_GOOGLE, WidgetPrefs.ICON_CLASSIC_COLOR -> {
-                    views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_color)
-                    views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_color)
-                    views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_color)
-                    views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_color)
-                }
                 WidgetPrefs.ICON_ADAPTIVE_EMERALD -> {
                     views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_ref)
                     views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_ref)
                     views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_ref)
                     views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_ref)
                 }
-                else -> {
+                WidgetPrefs.ICON_DYNAMIC_MONET -> {
                     views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_mono)
                     views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_mono)
                     views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_mono)
                     views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_mono)
+                }
+                WidgetPrefs.ICON_CLASSIC_COLOR -> {
+                    views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_color)
+                    views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_color)
+                    views.setImageViewResource(R.id.btn_lens_search, R.drawable.ic_gemini_color)
+                    views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_color)
                 }
             }
 
@@ -118,8 +118,20 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
 
+        private fun resolveIntentWithFallback(
+            context: Context,
+            primary: Intent,
+            fallback: Intent
+        ): Intent {
+            val pm = context.packageManager
+            if (pm.resolveActivity(primary, 0) != null) {
+                return primary
+            }
+            return fallback
+        }
+
         private fun createGoogleMainPendingIntent(context: Context): PendingIntent {
-            val mainIntent = Intent(Intent.ACTION_MAIN).apply {
+            val primary = Intent(Intent.ACTION_MAIN).apply {
                 addCategory(Intent.CATEGORY_LAUNCHER)
                 component = ComponentName(
                     GOOGLE_PACKAGE,
@@ -127,32 +139,48 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
                 )
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
+            val fallback = (context.packageManager.getLaunchIntentForPackage(GOOGLE_PACKAGE)
+                ?: Intent(Intent.ACTION_WEB_SEARCH)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
             return PendingIntent.getActivity(
                 context,
                 100,
-                mainIntent,
+                resolveIntentWithFallback(context, primary, fallback),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
 
         private fun createTextSearchPendingIntent(context: Context): PendingIntent {
-            val textSearchIntent = Intent("com.google.android.googlequicksearchbox.GOOGLE_SEARCH").apply {
+            val primary = Intent("com.google.android.googlequicksearchbox.GOOGLE_SEARCH").apply {
                 component = ComponentName(
                     GOOGLE_PACKAGE,
                     "com.google.android.googlequicksearchbox.ImplicitGoogleSearchEntrypointInternal"
                 )
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
+            val fallback = Intent("com.google.android.googlequicksearchbox.GOOGLE_SEARCH").apply {
+                setPackage(GOOGLE_PACKAGE)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }.let { pkgIntent ->
+                if (context.packageManager.resolveActivity(pkgIntent, 0) != null) {
+                    pkgIntent
+                } else {
+                    Intent(Intent.ACTION_WEB_SEARCH).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                }
+            }
             return PendingIntent.getActivity(
                 context,
                 104,
-                textSearchIntent,
+                resolveIntentWithFallback(context, primary, fallback),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
 
         private fun createVoiceSearchPendingIntent(context: Context): PendingIntent {
-            val voiceIntent = Intent("com.google.android.googlequicksearchbox.action.CLASSIC_GSA_VOICE_SEARCH").apply {
+            val primary = Intent("com.google.android.googlequicksearchbox.action.CLASSIC_GSA_VOICE_SEARCH").apply {
                 addCategory("com.google.android.googlequicksearchbox.category.SEARCH_WIDGET")
                 component = ComponentName(
                     GOOGLE_PACKAGE,
@@ -160,20 +188,23 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
                 )
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
+            val fallback = Intent(RecognizerIntent.ACTION_WEB_SEARCH).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
             return PendingIntent.getActivity(
                 context,
                 101,
-                voiceIntent,
+                resolveIntentWithFallback(context, primary, fallback),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
 
         /**
          * Opens the full standalone Gemini app (BardEntryPointActivity MAIN/LAUNCHER),
-         * NOT the voice assistant overlay.
+         * NOT the voice assistant overlay. Falls back to Gemini web if app is not installed.
          */
         private fun createGeminiAppPendingIntent(context: Context): PendingIntent {
-            val geminiIntent = Intent(Intent.ACTION_MAIN).apply {
+            val primary = Intent(Intent.ACTION_MAIN).apply {
                 addCategory(Intent.CATEGORY_LAUNCHER)
                 component = ComponentName(
                     GEMINI_PACKAGE,
@@ -181,19 +212,21 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
                 )
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
+            val fallback = (context.packageManager.getLaunchIntentForPackage(GEMINI_PACKAGE)
+                ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://gemini.google.com"))).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
             return PendingIntent.getActivity(
                 context,
                 102,
-                geminiIntent,
+                resolveIntentWithFallback(context, primary, fallback),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
 
         private fun createAiModePendingIntent(context: Context): PendingIntent {
-            val aiModeIntent = Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("https://www.google.com/gasearch?udm=50")
-            ).apply {
+            val aiUri = Uri.parse("https://www.google.com/gasearch?udm=50")
+            val primary = Intent(Intent.ACTION_VIEW, aiUri).apply {
                 addCategory(Intent.CATEGORY_DEFAULT)
                 addCategory(Intent.CATEGORY_BROWSABLE)
                 component = ComponentName(
@@ -202,10 +235,14 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
                 )
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
+            val fallback = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?udm=50")).apply {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
             return PendingIntent.getActivity(
                 context,
                 103,
-                aiModeIntent,
+                resolveIntentWithFallback(context, primary, fallback),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }

@@ -14,6 +14,7 @@ object ServiceHelper {
     private const val SERVICE_COMPONENT = "com.pixel.classicsearch/com.pixel.classicsearch.LauncherStateService"
 
     fun ensureAccessibilityServiceEnabled(context: Context) {
+        if (!ShizukuHelper.hasWriteSecureSettings(context)) return
         try {
             val cr = context.contentResolver
             val enabledServices = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""

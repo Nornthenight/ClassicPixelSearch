@@ -19,11 +19,14 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.materialswitch.MaterialSwitch
 import rikka.shizuku.Shizuku
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var hasAutoRequestedShizuku = false
+    @Volatile private var isGrantingViaShizuku = false
+    private val ioExecutor = Executors.newSingleThreadExecutor()
 
     private lateinit var txtShizukuStatus: TextView
     private lateinit var txtWriteSecureStatus: TextView
@@ -36,16 +39,11 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == ShizukuHelper.SHIZUKU_REQUEST_CODE) {
             if (grantResult == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Shizuku permission granted", Toast.LENGTH_SHORT).show()
-                val granted = ShizukuHelper.grantWriteSecureSettings(this)
-                if (granted) {
-                    ServiceHelper.ensureAccessibilityServiceEnabled(this)
-                    ShizukuHelper.enableAccessibilityService(this)
-                    Toast.makeText(this, "WRITE_SECURE_SETTINGS granted successfully!", Toast.LENGTH_SHORT).show()
-                }
+                grantAndEnableAsync(showSuccessToast = true)
             } else {
                 Toast.makeText(this, "Shizuku permission denied", Toast.LENGTH_SHORT).show()
+                updateStatusUi()
             }
-            updateStatusUi()
         }
     }
 
@@ -109,10 +107,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         when (WidgetPrefs.getIconStyle(this)) {
-            WidgetPrefs.ICON_DYNAMIC_MONET -> rgIconStyle.check(R.id.rb_icon_mono)
-            WidgetPrefs.ICON_ORIGINAL_GOOGLE, WidgetPrefs.ICON_CLASSIC_COLOR -> rgIconStyle.check(R.id.rb_icon_color)
             WidgetPrefs.ICON_ADAPTIVE_EMERALD -> rgIconStyle.check(R.id.rb_icon_ref)
-            else -> rgIconStyle.check(R.id.rb_icon_mono)
+            WidgetPrefs.ICON_DYNAMIC_MONET -> rgIconStyle.check(R.id.rb_icon_mono)
+            WidgetPrefs.ICON_CLASSIC_COLOR -> rgIconStyle.check(R.id.rb_icon_color)
         }
 
         val initialOpacity = WidgetPrefs.getOpacityPercent(this)
@@ -126,12 +123,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         fun getSelectedIconStyle(): Int = when (rgIconStyle.checkedRadioButtonId) {
-            R.id.rb_icon_color -> WidgetPrefs.ICON_ORIGINAL_GOOGLE
-            R.id.rb_icon_ref -> WidgetPrefs.ICON_ADAPTIVE_EMERALD
-            else -> WidgetPrefs.ICON_DYNAMIC_MONET
+            R.id.rb_icon_mono -> WidgetPrefs.ICON_DYNAMIC_MONET
+            R.id.rb_icon_color -> WidgetPrefs.ICON_CLASSIC_COLOR
+            else -> WidgetPrefs.ICON_ADAPTIVE_EMERALD
         }
 
-        fun refreshPreview() {
+        fun refreshStylePreview() {
             when (getSelectedSurfaceStyle()) {
                 WidgetPrefs.SURFACE_DEEP_RING -> previewOuter.setBackgroundResource(R.drawable.bg_outer_pill)
                 WidgetPrefs.SURFACE_PASTEL -> previewOuter.setBackgroundResource(R.drawable.bg_outer_pill_pastel)
@@ -139,17 +136,17 @@ class MainActivity : AppCompatActivity() {
             }
 
             when (getSelectedIconStyle()) {
-                WidgetPrefs.ICON_DYNAMIC_MONET -> {
-                    previewLogo.setImageResource(R.drawable.ic_google_logo_mono)
-                    previewMic.setImageResource(R.drawable.ic_mic_mono)
-                    previewGemini.setImageResource(R.drawable.ic_gemini_mono)
-                    previewAi.setImageResource(R.drawable.ic_ai_mode_mono)
-                }
                 WidgetPrefs.ICON_ADAPTIVE_EMERALD -> {
                     previewLogo.setImageResource(R.drawable.ic_google_logo_ref)
                     previewMic.setImageResource(R.drawable.ic_mic_ref)
                     previewGemini.setImageResource(R.drawable.ic_gemini_ref)
                     previewAi.setImageResource(R.drawable.ic_ai_mode_ref)
+                }
+                WidgetPrefs.ICON_DYNAMIC_MONET -> {
+                    previewLogo.setImageResource(R.drawable.ic_google_logo_mono)
+                    previewMic.setImageResource(R.drawable.ic_mic_mono)
+                    previewGemini.setImageResource(R.drawable.ic_gemini_mono)
+                    previewAi.setImageResource(R.drawable.ic_ai_mode_mono)
                 }
                 WidgetPrefs.ICON_CLASSIC_COLOR -> {
                     previewLogo.setImageResource(R.drawable.ic_google_logo_color)
@@ -158,18 +155,21 @@ class MainActivity : AppCompatActivity() {
                     previewAi.setImageResource(R.drawable.ic_ai_mode_color)
                 }
             }
-
-            txtOpacityValue.text = "${seekOpacity.progress}%"
-            previewOuter.alpha = seekOpacity.progress / 100f
         }
 
-        refreshPreview()
+        fun refreshOpacityPreview(progress: Int = seekOpacity.progress) {
+            txtOpacityValue.text = "$progress%"
+            previewOuter.alpha = progress / 100f
+        }
 
-        rgFrameStyle.setOnCheckedChangeListener { _, _ -> refreshPreview() }
-        rgIconStyle.setOnCheckedChangeListener { _, _ -> refreshPreview() }
+        refreshStylePreview()
+        refreshOpacityPreview(initialOpacity)
+
+        rgFrameStyle.setOnCheckedChangeListener { _, _ -> refreshStylePreview() }
+        rgIconStyle.setOnCheckedChangeListener { _, _ -> refreshStylePreview() }
         seekOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                refreshPreview()
+                refreshOpacityPreview(progress)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -189,23 +189,23 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        switchReplaceDock.isChecked = WidgetPrefs.isReplaceDockEnabled(this)
+
         btnSave.setOnClickListener {
+            val replaceDock = switchReplaceDock.isChecked
             WidgetPrefs.setSurfaceStyle(this, getSelectedSurfaceStyle())
             WidgetPrefs.setIconStyle(this, getSelectedIconStyle())
             WidgetPrefs.setOpacityPercent(this, seekOpacity.progress)
+            WidgetPrefs.setReplaceDockEnabled(this, replaceDock)
 
             ClassicSearchWidgetProvider.updateAllWidgets(this)
 
             try {
-                val targetValue = if (switchReplaceDock.isChecked) packageName else null
+                val targetValue = if (replaceDock) packageName else null
                 Settings.Secure.putString(contentResolver, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE, targetValue)
-
-                // Refresh Pixel Launcher dock immediately via Shizuku if active
-                ShizukuHelper.executePrivilegedShell("am force-stop com.google.android.apps.nexuslauncher && cmd search_ui restart 2>/dev/null")
-
                 Toast.makeText(
                     this,
-                    if (switchReplaceDock.isChecked) {
+                    if (replaceDock) {
                         "Search dock updated!"
                     } else {
                         "Restored stock search dock"
@@ -243,25 +243,45 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Throwable) {
             // Ignore
         }
+        ioExecutor.shutdown()
         super.onDestroy()
+    }
+
+    private fun grantAndEnableAsync(showSuccessToast: Boolean) {
+        if (isGrantingViaShizuku) return
+        isGrantingViaShizuku = true
+        ioExecutor.execute {
+            val granted = ShizukuHelper.grantWriteSecureSettings(this)
+            if (granted) {
+                ServiceHelper.ensureAccessibilityServiceEnabled(this)
+                ShizukuHelper.enableAccessibilityService(this)
+            }
+            runOnUiThread {
+                isGrantingViaShizuku = false
+                if (!isFinishing && !isDestroyed) {
+                    if (showSuccessToast) {
+                        if (granted) {
+                            Toast.makeText(this, "Permissions granted successfully!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Failed to grant permission via Shizuku", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    updateStatusUi()
+                }
+            }
+        }
     }
 
     private fun updateStatusUi() {
         val isInstalled = ShizukuHelper.isInstalled(this)
         val isRunning = ShizukuHelper.isRunning()
         val isShizukuGranted = ShizukuHelper.isPermissionGranted()
-        var hasWriteSecure = ShizukuHelper.hasWriteSecureSettings(this)
-        var isA11yActive = ShizukuHelper.isAccessibilityServiceEnabled(this)
+        val hasWriteSecure = ShizukuHelper.hasWriteSecureSettings(this)
+        val isA11yActive = ShizukuHelper.isAccessibilityServiceEnabled(this)
 
-        // Auto-grant WRITE_SECURE_SETTINGS if Shizuku is running and permission is granted
+        // Auto-grant WRITE_SECURE_SETTINGS asynchronously if Shizuku is running and permission is granted
         if (!hasWriteSecure && isRunning && isShizukuGranted) {
-            val granted = ShizukuHelper.grantWriteSecureSettings(this)
-            if (granted) {
-                ServiceHelper.ensureAccessibilityServiceEnabled(this)
-                ShizukuHelper.enableAccessibilityService(this)
-                hasWriteSecure = ShizukuHelper.hasWriteSecureSettings(this)
-                isA11yActive = ShizukuHelper.isAccessibilityServiceEnabled(this)
-            }
+            grantAndEnableAsync(showSuccessToast = false)
         }
 
         // Auto-request Shizuku permission once on launch if Shizuku is running
@@ -309,47 +329,8 @@ class MainActivity : AppCompatActivity() {
             txtA11yStatus.setTextColor(Color.parseColor("#757575"))
         }
 
-        // 4. Dock Switch Status
-        val currentEngine = try {
-            Settings.Secure.getString(contentResolver, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE)
-        } catch (e: Exception) {
-            null
-        }
-
-        // Auto-enable dock widget when WRITE_SECURE_SETTINGS is active if not set yet
-        if (hasWriteSecure && currentEngine == null) {
-            try {
-                Settings.Secure.putString(contentResolver, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE, packageName)
-            } catch (_: Exception) {}
-        }
-
-        switchReplaceDock.setOnCheckedChangeListener(null)
-        switchReplaceDock.isChecked = (currentEngine == packageName || (hasWriteSecure && currentEngine == null))
-        switchReplaceDock.setOnCheckedChangeListener { _, isChecked ->
-            if (!ShizukuHelper.hasWriteSecureSettings(this)) {
-                if (isChecked) {
-                    switchReplaceDock.isChecked = false
-                    Toast.makeText(
-                        this,
-                        "Grant WRITE_SECURE_SETTINGS first via Shizuku or ADB",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-                return@setOnCheckedChangeListener
-            }
-            try {
-                val targetEngine = if (isChecked) packageName else null
-                Settings.Secure.putString(contentResolver, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE, targetEngine)
-                Toast.makeText(
-                    this,
-                    if (isChecked) "Classic dock search enabled!" else "Restored stock Google dock",
-                    Toast.LENGTH_SHORT
-                ).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "Failed to update engine: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
-
+        // 4. Dock Switch Status (respect saved user preference)
+        switchReplaceDock.isChecked = WidgetPrefs.isReplaceDockEnabled(this)
         txtDockStatus.text = if (hasWriteSecure) {
             "WRITE_SECURE_SETTINGS active — Dynamic Search Sync & Classic Dock Ready"
         } else {
@@ -393,13 +374,21 @@ class MainActivity : AppCompatActivity() {
 
         when {
             !isInstalled -> {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/"))
-                startActivity(intent)
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/"))
+                    startActivity(intent)
+                } catch (_: Exception) {
+                    Toast.makeText(this, "Install Shizuku from Play Store or GitHub", Toast.LENGTH_LONG).show()
+                }
             }
             !isRunning -> {
                 val intent = packageManager.getLaunchIntentForPackage(ShizukuHelper.SHIZUKU_PACKAGE)
                 if (intent != null) {
-                    startActivity(intent)
+                    try {
+                        startActivity(intent)
+                    } catch (_: Exception) {
+                        Toast.makeText(this, "Start Shizuku service and return here", Toast.LENGTH_LONG).show()
+                    }
                 } else {
                     Toast.makeText(this, "Start Shizuku service and return here", Toast.LENGTH_LONG).show()
                 }
@@ -408,21 +397,10 @@ class MainActivity : AppCompatActivity() {
                 ShizukuHelper.requestPermission(ShizukuHelper.SHIZUKU_REQUEST_CODE)
             }
             !hasWriteSecure -> {
-                val granted = ShizukuHelper.grantWriteSecureSettings(this)
-                if (granted) {
-                    ServiceHelper.ensureAccessibilityServiceEnabled(this)
-                    ShizukuHelper.enableAccessibilityService(this)
-                    Toast.makeText(this, "Permissions granted successfully!", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this, "Failed to grant permission via Shizuku", Toast.LENGTH_LONG).show()
-                }
-                updateStatusUi()
+                grantAndEnableAsync(showSuccessToast = true)
             }
             else -> {
-                ServiceHelper.ensureAccessibilityServiceEnabled(this)
-                ShizukuHelper.enableAccessibilityService(this)
-                updateStatusUi()
-                Toast.makeText(this, "Permissions and services refreshed", Toast.LENGTH_SHORT).show()
+                grantAndEnableAsync(showSuccessToast = true)
             }
         }
     }
