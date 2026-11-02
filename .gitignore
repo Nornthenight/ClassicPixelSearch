@@ -13,7 +13,6 @@ app/build/
 local.properties
 .kotlin
 *.apk
-!ClassicPixelSearch-v1.2.apk
 *.aab
 .navigation/
 captures/

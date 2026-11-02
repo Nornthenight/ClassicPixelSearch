@@ -10,7 +10,16 @@ class SearchTapActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         suppressTransitions()
         super.onCreate(savedInstanceState)
+        handleIntent(intent)
+    }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
         val query = intent?.getStringExtra(SearchManager.QUERY)
         val googleIntent = if (!query.isNullOrBlank()) {
             Intent(Intent.ACTION_WEB_SEARCH).apply {
@@ -21,7 +30,6 @@ class SearchTapActivity : Activity() {
         } else {
             Intent("com.google.android.googlequicksearchbox.GOOGLE_SEARCH").apply {
                 setPackage(ServiceHelper.GOOGLE_SEARCH_PACKAGE)
-                intent?.extras?.let { putExtras(it) }
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
         }

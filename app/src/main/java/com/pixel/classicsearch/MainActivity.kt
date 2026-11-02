@@ -200,24 +200,39 @@ class MainActivity : AppCompatActivity() {
 
             ClassicSearchWidgetProvider.updateAllWidgets(this)
 
-            try {
-                val targetValue = if (replaceDock) packageName else null
-                Settings.Secure.putString(contentResolver, ServiceHelper.KEY_SELECTED_SEARCH_ENGINE, targetValue)
-                Toast.makeText(
-                    this,
-                    if (replaceDock) {
-                        "Search dock updated!"
-                    } else {
-                        "Restored stock search dock"
-                    },
-                    Toast.LENGTH_SHORT
-                ).show()
-            } catch (e: SecurityException) {
-                Toast.makeText(
-                    this,
-                    "Missing WRITE_SECURE_SETTINGS permission",
-                    Toast.LENGTH_LONG
-                ).show()
+            val appCtx = applicationContext
+            val targetValue = if (replaceDock) packageName else null
+            ioExecutor.execute {
+                try {
+                    Settings.Secure.putString(
+                        appCtx.contentResolver,
+                        ServiceHelper.KEY_SELECTED_SEARCH_ENGINE,
+                        targetValue
+                    )
+                    runOnUiThread {
+                        if (!isFinishing && !isDestroyed) {
+                            Toast.makeText(
+                                this,
+                                if (replaceDock) {
+                                    "Search dock updated!"
+                                } else {
+                                    "Restored stock search dock"
+                                },
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                } catch (e: SecurityException) {
+                    runOnUiThread {
+                        if (!isFinishing && !isDestroyed) {
+                            Toast.makeText(
+                                this,
+                                "Missing WRITE_SECURE_SETTINGS permission",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
             }
 
             if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -250,11 +265,12 @@ class MainActivity : AppCompatActivity() {
     private fun grantAndEnableAsync(showSuccessToast: Boolean) {
         if (isGrantingViaShizuku) return
         isGrantingViaShizuku = true
+        val appCtx = applicationContext
         ioExecutor.execute {
-            val granted = ShizukuHelper.grantWriteSecureSettings(this)
+            val granted = ShizukuHelper.grantWriteSecureSettings(appCtx)
             if (granted) {
-                ServiceHelper.ensureAccessibilityServiceEnabled(this)
-                ShizukuHelper.enableAccessibilityService(this)
+                ServiceHelper.ensureAccessibilityServiceEnabled(appCtx)
+                ShizukuHelper.enableAccessibilityService(appCtx)
             }
             runOnUiThread {
                 isGrantingViaShizuku = false

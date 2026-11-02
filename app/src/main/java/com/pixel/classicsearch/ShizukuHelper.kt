@@ -90,8 +90,8 @@ object ShizukuHelper {
         val process = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
         return try {
             process.outputStream.close()
-            process.inputStream.close()
-            process.errorStream.close()
+            process.inputStream.use { it.readBytes() }
+            process.errorStream.use { it.readBytes() }
             if (process.waitFor(5, TimeUnit.SECONDS)) {
                 process.exitValue()
             } else {

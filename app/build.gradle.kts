@@ -11,13 +11,15 @@ android {
         applicationId = "com.pixel.classicsearch"
         minSdk = 31 // Android 12+ (Material You / Monet dynamic colors)
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.2.1"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
