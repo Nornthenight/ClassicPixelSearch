@@ -24,7 +24,8 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
             Intent.ACTION_CONFIGURATION_CHANGED,
             Intent.ACTION_WALLPAPER_CHANGED,
             Intent.ACTION_LOCALE_CHANGED,
-            Intent.ACTION_MY_PACKAGE_REPLACED -> {
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            ACTION_REFRESH_WIDGET -> {
                 updateAllWidgets(context)
             }
         }
@@ -54,6 +55,8 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
+        const val ACTION_REFRESH_WIDGET = "com.pixel.classicsearch.ACTION_REFRESH_WIDGET"
+
         fun updateAllWidgets(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(
@@ -78,41 +81,47 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
             val widgetWidthDp = (if (minWidth > 0) minWidth else 320).coerceIn(220, 600)
 
             val density = context.resources.displayMetrics.density
-            val outerWidthPx = (widgetWidthDp * density).roundToInt()
             val outerHeightDp = 62
             val outerHeightPx = (outerHeightDp * density).roundToInt()
+            val outerCapWidthPx = (outerHeightPx / 2).coerceAtLeast(2)
 
             val ringGapDp = WidgetPrefs.getRingGapDp(context)
             val ringGapPx = (ringGapDp * density).roundToInt()
 
-            val cornerRadiusDp = WidgetPrefs.getCornerRadiusDp(context)
+            val cornerRadiusDp = WidgetPrefs.getCornerRadiusDp(context).coerceIn(12, 31)
             val outerRadiusPx = cornerRadiusDp * density
+
+            val innerHeightDp = (outerHeightDp - 2 * ringGapDp).coerceAtLeast(24)
+            val innerHeightPx = (innerHeightDp * density).roundToInt()
+            val innerCapWidthPx = (innerHeightPx / 2).coerceAtLeast(2)
+            val innerCornerRadiusDp = (cornerRadiusDp - ringGapDp).coerceIn(4, innerHeightDp / 2)
+            val innerCornerRadiusPx = innerCornerRadiusDp * density
 
             val outerAlphaPercent = WidgetPrefs.getOuterAlphaPercent(context)
             val opacityPercent = WidgetPrefs.getOpacityPercent(context)
             val surfaceStyle = WidgetPrefs.getSurfaceStyle(context)
 
-            val innerHeightDp = (outerHeightDp - 2 * ringGapDp).coerceAtLeast(24)
-            val innerHeightPx = (innerHeightDp * density).roundToInt()
-            val innerCornerRadiusDp = (cornerRadiusDp - ringGapDp).coerceIn(4, innerHeightDp / 2)
-            val innerCornerRadiusPx = innerCornerRadiusDp * density
-
-            val aiSizePx = innerHeightPx
-            val pillWidthPx = (outerWidthPx - 2 * ringGapPx - ringGapPx - aiSizePx).coerceAtLeast(100)
-
-            // 2. Render dynamic high-DPI bitmaps for outer ring, inner pill, and AI button
-            val outerBitmap = WidgetDrawableRenderer.renderOuterRingBitmap(
-                context, outerWidthPx, outerHeightPx, outerRadiusPx, surfaceStyle
+            // 2. Render width-independent 3-slice bitmaps for outer ring & inner pill + exact square bitmap for AI button
+            val outerSlices = WidgetDrawableRenderer.renderOuterThreeSlice(
+                context, outerHeightPx, outerRadiusPx, surfaceStyle
             )
-            views.setImageViewBitmap(R.id.bg_outer_layer, outerBitmap)
+            views.setImageViewBitmap(R.id.bg_outer_left, outerSlices.left)
+            views.setImageViewBitmap(R.id.bg_outer_center, outerSlices.center)
+            views.setImageViewBitmap(R.id.bg_outer_right, outerSlices.right)
+            views.setViewLayoutWidth(R.id.bg_outer_left, outerCapWidthPx.toFloat(), TypedValue.COMPLEX_UNIT_PX)
+            views.setViewLayoutWidth(R.id.bg_outer_right, outerCapWidthPx.toFloat(), TypedValue.COMPLEX_UNIT_PX)
 
-            val innerPillBitmap = WidgetDrawableRenderer.renderInnerPillBitmap(
-                context, pillWidthPx, innerHeightPx, innerCornerRadiusPx, surfaceStyle
+            val innerSlices = WidgetDrawableRenderer.renderInnerThreeSlice(
+                context, innerHeightPx, innerCornerRadiusPx, surfaceStyle
             )
-            views.setImageViewBitmap(R.id.bg_inner_pill_layer, innerPillBitmap)
+            views.setImageViewBitmap(R.id.bg_inner_left, innerSlices.left)
+            views.setImageViewBitmap(R.id.bg_inner_center, innerSlices.center)
+            views.setImageViewBitmap(R.id.bg_inner_right, innerSlices.right)
+            views.setViewLayoutWidth(R.id.bg_inner_left, innerCapWidthPx.toFloat(), TypedValue.COMPLEX_UNIT_PX)
+            views.setViewLayoutWidth(R.id.bg_inner_right, innerCapWidthPx.toFloat(), TypedValue.COMPLEX_UNIT_PX)
 
             val aiBitmap = WidgetDrawableRenderer.renderAiCircleBitmap(
-                context, aiSizePx, innerCornerRadiusPx, surfaceStyle
+                context, innerHeightPx, innerCornerRadiusPx, surfaceStyle
             )
             views.setImageViewBitmap(R.id.bg_ai_circle_layer, aiBitmap)
 

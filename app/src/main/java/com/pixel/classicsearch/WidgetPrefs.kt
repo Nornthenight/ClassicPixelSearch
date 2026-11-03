@@ -192,13 +192,15 @@ object WidgetPrefs {
 
     fun getCornerRadiusDp(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getInt(KEY_CORNER_RADIUS, 28).coerceIn(12, 36)
+        val saved = prefs.getInt(KEY_CORNER_RADIUS, 31)
+        val value = if (saved == 28) 31 else saved
+        return value.coerceIn(12, 31)
     }
 
     fun setCornerRadiusDp(context: Context, dp: Int) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putInt(KEY_CORNER_RADIUS, dp.coerceIn(12, 36))
+            .putInt(KEY_CORNER_RADIUS, dp.coerceIn(12, 31))
             .apply()
     }
 }

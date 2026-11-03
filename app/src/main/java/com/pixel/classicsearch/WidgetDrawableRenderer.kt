@@ -72,34 +72,64 @@ object WidgetDrawableRenderer {
         return bitmap
     }
 
-    fun renderOuterRingBitmap(
+    data class ThreeSliceBitmaps(
+        val left: Bitmap,
+        val center: Bitmap,
+        val right: Bitmap
+    )
+
+    fun renderThreeSlicePill(
         context: Context,
-        widthPx: Int,
+        heightPx: Int,
+        cornerRadiusPx: Float,
+        fillColor: Int,
+        strokeColor: Int? = null,
+        strokeWidthPx: Float = 0f
+    ): ThreeSliceBitmaps {
+        val h = heightPx.coerceAtLeast(4)
+        val capWidth = (h / 2).coerceAtLeast(2)
+        val centerWidth = 4
+        val totalWidth = capWidth * 2 + centerWidth
+        val master = renderRoundedRectBitmap(
+            widthPx = totalWidth,
+            heightPx = h,
+            cornerRadiusPx = cornerRadiusPx.coerceIn(0f, capWidth.toFloat()),
+            fillColor = fillColor,
+            strokeColor = strokeColor,
+            strokeWidthPx = strokeWidthPx
+        )
+        val left = Bitmap.createBitmap(master, 0, 0, capWidth, h)
+        val center = Bitmap.createBitmap(master, capWidth, 0, centerWidth, h)
+        val right = Bitmap.createBitmap(master, capWidth + centerWidth, 0, capWidth, h)
+        return ThreeSliceBitmaps(left, center, right)
+    }
+
+    fun renderOuterThreeSlice(
+        context: Context,
         heightPx: Int,
         cornerRadiusPx: Float,
         surfaceStyle: Int
-    ): Bitmap {
+    ): ThreeSliceBitmaps {
         val density = context.resources.displayMetrics.density
         val fillColor = getOuterColor(context, surfaceStyle)
         val isAmoled = surfaceStyle == WidgetPrefs.SURFACE_AMOLED
         val strokeColor = if (isAmoled) getStrokeColor(context) else null
         val strokeWidthPx = if (isAmoled) (1f * density).coerceAtLeast(1f) else 0f
-        return renderRoundedRectBitmap(widthPx, heightPx, cornerRadiusPx, fillColor, strokeColor, strokeWidthPx)
+        return renderThreeSlicePill(context, heightPx, cornerRadiusPx, fillColor, strokeColor, strokeWidthPx)
     }
 
-    fun renderInnerPillBitmap(
+    fun renderInnerThreeSlice(
         context: Context,
-        widthPx: Int,
         heightPx: Int,
         cornerRadiusPx: Float,
         surfaceStyle: Int
-    ): Bitmap {
+    ): ThreeSliceBitmaps {
         val density = context.resources.displayMetrics.density
         val fillColor = getInnerColor(context, surfaceStyle)
         val isAmoled = surfaceStyle == WidgetPrefs.SURFACE_AMOLED
         val strokeColor = if (isAmoled) getStrokeColor(context) else null
         val strokeWidthPx = if (isAmoled) (1f * density).coerceAtLeast(1f) else 0f
-        return renderRoundedRectBitmap(widthPx, heightPx, cornerRadiusPx, fillColor, strokeColor, strokeWidthPx)
+        return renderThreeSlicePill(context, heightPx, cornerRadiusPx, fillColor, strokeColor, strokeWidthPx)
     }
 
     fun renderAiCircleBitmap(
@@ -108,7 +138,12 @@ object WidgetDrawableRenderer {
         cornerRadiusPx: Float,
         surfaceStyle: Int
     ): Bitmap {
-        return renderInnerPillBitmap(context, sizePx, sizePx, cornerRadiusPx, surfaceStyle)
+        val density = context.resources.displayMetrics.density
+        val fillColor = getInnerColor(context, surfaceStyle)
+        val isAmoled = surfaceStyle == WidgetPrefs.SURFACE_AMOLED
+        val strokeColor = if (isAmoled) getStrokeColor(context) else null
+        val strokeWidthPx = if (isAmoled) (1f * density).coerceAtLeast(1f) else 0f
+        return renderRoundedRectBitmap(sizePx, sizePx, cornerRadiusPx, fillColor, strokeColor, strokeWidthPx)
     }
 
     fun createOuterDrawable(

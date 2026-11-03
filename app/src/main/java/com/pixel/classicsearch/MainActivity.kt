@@ -96,8 +96,8 @@ class MainActivity : AppCompatActivity() {
         val btnSave = findViewById<Button>(R.id.btn_save_config)
 
         // Live preview views
-        val bgOuterLayer = findViewById<ImageView>(R.id.bg_outer_layer)
-        val bgInnerPillLayer = findViewById<ImageView>(R.id.bg_inner_pill_layer)
+        val bgOuterLayer = findViewById<View>(R.id.bg_outer_layer)
+        val bgInnerPillLayer = findViewById<View>(R.id.bg_inner_pill_layer)
         val bgAiCircleLayer = findViewById<ImageView>(R.id.bg_ai_circle_layer)
         val previewOuter = findViewById<View>(R.id.search_outer_container)
         val previewPillContainer = findViewById<View>(R.id.search_pill_container)
@@ -208,12 +208,8 @@ class MainActivity : AppCompatActivity() {
             val innerHeightPx = (innerHeightDp * density).roundToInt()
             val innerRadiusPx = (radiusDp - gapDp).coerceIn(4, innerHeightDp / 2) * density
 
-            bgOuterLayer.setImageDrawable(
-                WidgetDrawableRenderer.createOuterDrawable(this, outerRadiusPx, surfaceStyle)
-            )
-            bgInnerPillLayer.setImageDrawable(
-                WidgetDrawableRenderer.createInnerDrawable(this, innerRadiusPx, surfaceStyle)
-            )
+            bgOuterLayer.background = WidgetDrawableRenderer.createOuterDrawable(this, outerRadiusPx, surfaceStyle)
+            bgInnerPillLayer.background = WidgetDrawableRenderer.createInnerDrawable(this, innerRadiusPx, surfaceStyle)
             bgAiCircleLayer.setImageDrawable(
                 WidgetDrawableRenderer.createInnerDrawable(this, innerRadiusPx, surfaceStyle)
             )

@@ -4,14 +4,33 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Outer ring background layer -->
-    <ImageView
+    <!-- Outer ring 3-slice background layer (zero horizontal corner distortion at any width) -->
+    <LinearLayout
         android:id="@+id/bg_outer_layer"
         android:layout_width="match_parent"
         android:layout_height="62dp"
         android:layout_gravity="center_vertical"
-        android:scaleType="fitXY"
-        android:src="@drawable/bg_outer_pill" />
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/bg_outer_left"
+            android:layout_width="31dp"
+            android:layout_height="match_parent"
+            android:scaleType="fitXY" />
+
+        <ImageView
+            android:id="@+id/bg_outer_center"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="fitXY" />
+
+        <ImageView
+            android:id="@+id/bg_outer_right"
+            android:layout_width="31dp"
+            android:layout_height="match_parent"
+            android:scaleType="fitXY" />
+    </LinearLayout>
 
     <!-- Outer container holding inner pill and AI button -->
     <LinearLayout
@@ -30,13 +49,32 @@
             android:layout_height="match_parent"
             android:layout_weight="1">
 
-            <!-- Inner capsule background layer -->
-            <ImageView
+            <!-- Inner capsule 3-slice background layer -->
+            <LinearLayout
                 android:id="@+id/bg_inner_pill_layer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:scaleType="fitXY"
-                android:src="@drawable/bg_inner_pill" />
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/bg_inner_left"
+                    android:layout_width="25dp"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitXY" />
+
+                <ImageView
+                    android:id="@+id/bg_inner_center"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:scaleType="fitXY" />
+
+                <ImageView
+                    android:id="@+id/bg_inner_right"
+                    android:layout_width="25dp"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitXY" />
+            </LinearLayout>
 
             <!-- Inner search capsule (Google G + Search Field + Voice Mic + Gemini / Lens) -->
             <LinearLayout
@@ -111,8 +149,7 @@
                 android:id="@+id/bg_ai_circle_layer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:scaleType="fitXY"
-                android:src="@drawable/bg_ai_circle" />
+                android:scaleType="fitXY" />
 
             <!-- AI button icon (remappable action) -->
             <ImageView

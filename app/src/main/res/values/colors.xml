@@ -24,7 +24,7 @@
 
     <!-- AMOLED / Pure Black Style -->
     <color name="widget_outer_surface_amoled">#000000</color>
-    <color name="widget_inner_surface_amoled">#0A0A0A</color>
+    <color name="widget_inner_surface_amoled">#1C1C1C</color>
     <color name="widget_stroke_amoled">#333333</color>
 
     <color name="widget_hint_text">@android:color/system_neutral2_600</color>
