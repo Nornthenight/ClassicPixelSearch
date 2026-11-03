@@ -284,6 +284,14 @@
                     android:text="@string/frame_style_rich"
                     android:textAppearance="?attr/textAppearanceBodyLarge" />
 
+                <RadioButton
+                    android:id="@+id/rb_frame_amoled"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:paddingStart="8dp"
+                    android:text="@string/frame_style_amoled"
+                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+
             </RadioGroup>
 
         </com.google.android.material.card.MaterialCardView>
@@ -340,6 +348,270 @@
                     android:textAppearance="?attr/textAppearanceBodyLarge" />
 
             </RadioGroup>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Right-Zone Button Actions -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:alpha="0.75"
+            android:letterSpacing="0.08"
+            android:text="@string/section_button_actions"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textStyle="bold" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutlineVariant"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Row 1: Microphone Action -->
+                <LinearLayout
+                    android:id="@+id/row_mic_action"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:orientation="vertical"
+                    android:paddingVertical="8dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_mic_action"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txt_mic_action_desc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:alpha="0.75"
+                        android:text="@string/action_voice_search"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="6dp"
+                    android:background="?attr/colorOutlineVariant" />
+
+                <!-- Row 2: Middle Button (Gemini / Lens) Action -->
+                <LinearLayout
+                    android:id="@+id/row_middle_action"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:orientation="vertical"
+                    android:paddingVertical="8dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_middle_action"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txt_middle_action_desc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:alpha="0.75"
+                        android:text="@string/action_gemini"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="6dp"
+                    android:background="?attr/colorOutlineVariant" />
+
+                <!-- Row 3: Right Button (AI Circle) Action -->
+                <LinearLayout
+                    android:id="@+id/row_ai_action"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:orientation="vertical"
+                    android:paddingVertical="8dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_ai_action"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txt_ai_action_desc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:alpha="0.75"
+                        android:text="@string/action_ai_mode"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Geometry & Framing -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:alpha="0.75"
+            android:letterSpacing="0.08"
+            android:text="@string/section_geometry"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textStyle="bold" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutlineVariant"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Outer Ring Alpha -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/label_outer_alpha"
+                        android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                    <TextView
+                        android:id="@+id/txt_outer_alpha_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="85%"
+                        android:textAppearance="?attr/textAppearanceLabelLarge"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seek_outer_alpha"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:max="100"
+                    android:min="0"
+                    android:progress="85" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="10dp"
+                    android:background="?attr/colorOutlineVariant" />
+
+                <!-- Concentric Ring Gap -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/label_ring_gap"
+                        android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                    <TextView
+                        android:id="@+id/txt_ring_gap_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="6 dp"
+                        android:textAppearance="?attr/textAppearanceLabelLarge"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seek_ring_gap"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:max="12"
+                    android:min="2"
+                    android:progress="6" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="10dp"
+                    android:background="?attr/colorOutlineVariant" />
+
+                <!-- Corner Radius -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/label_corner_radius"
+                        android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                    <TextView
+                        android:id="@+id/txt_corner_radius_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="28 dp"
+                        android:textAppearance="?attr/textAppearanceLabelLarge"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seek_corner_radius"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:max="36"
+                    android:min="12"
+                    android:progress="28" />
+
+            </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
@@ -401,6 +673,81 @@
                     android:max="100"
                     android:min="30"
                     android:progress="100" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Pixel Haptic Feedback -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:alpha="0.75"
+            android:letterSpacing="0.08"
+            android:text="@string/section_haptics"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textStyle="bold" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutlineVariant"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switch_haptic"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/option_haptic_enabled"
+                    android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:alpha="0.75"
+                    android:text="@string/option_haptic_desc"
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="10dp"
+                    android:background="?attr/colorOutlineVariant" />
+
+                <RadioGroup
+                    android:id="@+id/rg_haptic_style"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <RadioButton
+                        android:id="@+id/rb_haptic_tick"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:paddingStart="8dp"
+                        android:text="@string/haptic_style_tick"
+                        android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                    <RadioButton
+                        android:id="@+id/rb_haptic_click"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:paddingStart="8dp"
+                        android:text="@string/haptic_style_click"
+                        android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                </RadioGroup>
 
             </LinearLayout>
 

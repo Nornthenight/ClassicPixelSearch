@@ -4,89 +4,122 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Outer wide stadium capsule:
-         Height = 62dp (R_outer = 31dp).
-         Inner elements height = 44dp (R_inner = 22dp).
-         Vertical frame = (62 - 44)/2 = 9dp.
-         Horizontal margins = 9dp (left, middle gap, right).
-         Concentricity: R_inner (22dp) + Frame (9dp) = R_outer (31dp). -->
+    <!-- Outer ring background layer -->
+    <ImageView
+        android:id="@+id/bg_outer_layer"
+        android:layout_width="match_parent"
+        android:layout_height="62dp"
+        android:layout_gravity="center_vertical"
+        android:scaleType="fitXY" />
+
+    <!-- Outer container holding inner pill and AI button -->
     <LinearLayout
         android:id="@+id/search_outer_container"
         android:layout_width="match_parent"
         android:layout_height="62dp"
         android:layout_gravity="center_vertical"
-        android:background="@drawable/bg_outer_pill"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:padding="6dp">
 
-        <!-- Inner search capsule (Google G + Search Field + Voice Mic + Gemini App) -->
-        <LinearLayout
-            android:id="@+id/search_pill_container"
+        <!-- Inner search capsule wrapper -->
+        <FrameLayout
+            android:id="@+id/search_pill_wrapper"
             android:layout_width="0dp"
-            android:layout_height="44dp"
-            android:layout_marginStart="9dp"
-            android:layout_weight="1"
-            android:background="@drawable/bg_inner_pill"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="13dp"
-            android:paddingEnd="9dp">
+            android:layout_height="match_parent"
+            android:layout_weight="1">
 
-            <!-- Google "G" Icon (opens main Google App home feed) -->
+            <!-- Inner capsule background layer -->
             <ImageView
-                android:id="@+id/img_google_logo"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:contentDescription="@string/cd_google_search"
-                android:padding="3dp"
-                android:src="@drawable/ic_google_logo_ref" />
-
-            <!-- Main clickable search bar text area (opens Google text search input) -->
-            <TextView
-                android:id="@+id/search_touch_area"
-                android:layout_width="0dp"
+                android:id="@+id/bg_inner_pill_layer"
+                android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:contentDescription="@string/cd_google_search"
+                android:scaleType="fitXY" />
+
+            <!-- Inner search capsule (Google G + Search Field + Voice Mic + Gemini / Lens) -->
+            <LinearLayout
+                android:id="@+id/search_pill_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
                 android:gravity="center_vertical"
-                android:paddingStart="10dp"
-                android:paddingEnd="6dp"
-                android:text=""
-                android:textColor="@color/widget_hint_text"
-                android:textSize="16sp" />
+                android:orientation="horizontal"
+                android:paddingStart="13dp"
+                android:paddingEnd="9dp">
 
-            <!-- Voice Search Button (Microphone -> classic GSA voice search) -->
+                <!-- Google "G" Icon (opens main Google App home feed) -->
+                <ImageView
+                    android:id="@+id/img_google_logo"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:contentDescription="@string/cd_google_search"
+                    android:padding="3dp"
+                    android:src="@drawable/ic_google_logo_ref" />
+
+                <!-- Main clickable search bar text area (opens Google text search input) -->
+                <TextView
+                    android:id="@+id/search_touch_area"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:contentDescription="@string/cd_google_search"
+                    android:gravity="center_vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="6dp"
+                    android:text=""
+                    android:textColor="@color/widget_hint_text"
+                    android:textSize="16sp" />
+
+                <!-- Voice Search Button (Microphone -> remappable action) -->
+                <ImageView
+                    android:id="@+id/btn_voice_search"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:contentDescription="@string/cd_voice_search"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_mic_ref" />
+
+                <!-- Middle Button (Gemini / Lens -> remappable action) -->
+                <ImageView
+                    android:id="@+id/btn_lens_search"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="4dp"
+                    android:contentDescription="@string/cd_gemini_app"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_gemini_ref" />
+
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Concentric gap spacer between pill and AI button -->
+        <View
+            android:id="@+id/ring_gap_spacer"
+            android:layout_width="6dp"
+            android:layout_height="match_parent" />
+
+        <!-- AI Mode circular button wrapper -->
+        <FrameLayout
+            android:id="@+id/ai_button_wrapper"
+            android:layout_width="50dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_vertical">
+
+            <!-- AI button background layer -->
             <ImageView
-                android:id="@+id/btn_voice_search"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:contentDescription="@string/cd_voice_search"
-                android:padding="10dp"
-                android:src="@drawable/ic_mic_ref" />
+                android:id="@+id/bg_ai_circle_layer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitXY" />
 
-            <!-- Gemini App Button (Sparkle -> opens standalone Gemini App, not Assistant overlay) -->
+            <!-- AI button icon (remappable action) -->
             <ImageView
-                android:id="@+id/btn_lens_search"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginStart="4dp"
-                android:contentDescription="@string/cd_gemini_app"
+                android:id="@+id/btn_ai_mode"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/cd_ai_mode"
                 android:padding="10dp"
-                android:src="@drawable/ic_gemini_ref" />
-
-        </LinearLayout>
-
-        <!-- Separate circular AI Mode button on the right (44x44dp, 9dp start & 9dp end margin) -->
-        <ImageView
-            android:id="@+id/btn_ai_mode"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginStart="9dp"
-            android:layout_marginEnd="9dp"
-            android:background="@drawable/bg_ai_circle"
-            android:contentDescription="@string/cd_ai_mode"
-            android:padding="10dp"
-            android:src="@drawable/ic_ai_mode_ref" />
+                android:src="@drawable/ic_ai_mode_ref" />
+        </FrameLayout>
 
     </LinearLayout>
 

@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
@@ -16,10 +17,12 @@ import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.materialswitch.MaterialSwitch
 import rikka.shizuku.Shizuku
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
 
@@ -75,15 +78,40 @@ class MainActivity : AppCompatActivity() {
         val rgIconStyle = findViewById<RadioGroup>(R.id.rg_icon_style)
         val seekOpacity = findViewById<SeekBar>(R.id.seek_opacity)
         val txtOpacityValue = findViewById<TextView>(R.id.txt_opacity_value)
+        val seekOuterAlpha = findViewById<SeekBar>(R.id.seek_outer_alpha)
+        val txtOuterAlphaValue = findViewById<TextView>(R.id.txt_outer_alpha_value)
+        val seekRingGap = findViewById<SeekBar>(R.id.seek_ring_gap)
+        val txtRingGapValue = findViewById<TextView>(R.id.txt_ring_gap_value)
+        val seekCornerRadius = findViewById<SeekBar>(R.id.seek_corner_radius)
+        val txtCornerRadiusValue = findViewById<TextView>(R.id.txt_corner_radius_value)
+        val switchHaptic = findViewById<MaterialSwitch>(R.id.switch_haptic)
+        val rgHapticStyle = findViewById<RadioGroup>(R.id.rg_haptic_style)
+        val rowMicAction = findViewById<View>(R.id.row_mic_action)
+        val txtMicActionDesc = findViewById<TextView>(R.id.txt_mic_action_desc)
+        val rowMiddleAction = findViewById<View>(R.id.row_middle_action)
+        val txtMiddleActionDesc = findViewById<TextView>(R.id.txt_middle_action_desc)
+        val rowAiAction = findViewById<View>(R.id.row_ai_action)
+        val txtAiActionDesc = findViewById<TextView>(R.id.txt_ai_action_desc)
         val btnPinWidget = findViewById<Button>(R.id.btn_pin_widget)
         val btnSave = findViewById<Button>(R.id.btn_save_config)
 
         // Live preview views
+        val bgOuterLayer = findViewById<ImageView>(R.id.bg_outer_layer)
+        val bgInnerPillLayer = findViewById<ImageView>(R.id.bg_inner_pill_layer)
+        val bgAiCircleLayer = findViewById<ImageView>(R.id.bg_ai_circle_layer)
         val previewOuter = findViewById<View>(R.id.search_outer_container)
+        val previewPillContainer = findViewById<View>(R.id.search_pill_container)
+        val previewTouchArea = findViewById<View>(R.id.search_touch_area)
+        val previewRingSpacer = findViewById<View>(R.id.ring_gap_spacer)
+        val previewAiWrapper = findViewById<View>(R.id.ai_button_wrapper)
         val previewLogo = findViewById<ImageView>(R.id.img_google_logo)
         val previewMic = findViewById<ImageView>(R.id.btn_voice_search)
         val previewGemini = findViewById<ImageView>(R.id.btn_lens_search)
         val previewAi = findViewById<ImageView>(R.id.btn_ai_mode)
+
+        var selectedMicAction = WidgetPrefs.getMicAction(this)
+        var selectedMiddleAction = WidgetPrefs.getMiddleAction(this)
+        var selectedAiAction = WidgetPrefs.getAiAction(this)
 
         // Register Shizuku listeners
         try {
@@ -104,6 +132,7 @@ class MainActivity : AppCompatActivity() {
             WidgetPrefs.SURFACE_DEEP_RING -> rgFrameStyle.check(R.id.rb_frame_deep)
             WidgetPrefs.SURFACE_PASTEL -> rgFrameStyle.check(R.id.rb_frame_pastel)
             WidgetPrefs.SURFACE_RICH_ACCENT -> rgFrameStyle.check(R.id.rb_frame_rich)
+            WidgetPrefs.SURFACE_AMOLED -> rgFrameStyle.check(R.id.rb_frame_amoled)
         }
 
         when (WidgetPrefs.getIconStyle(this)) {
@@ -116,9 +145,28 @@ class MainActivity : AppCompatActivity() {
         seekOpacity.progress = initialOpacity
         txtOpacityValue.text = "$initialOpacity%"
 
+        val initialOuterAlpha = WidgetPrefs.getOuterAlphaPercent(this)
+        seekOuterAlpha.progress = initialOuterAlpha
+        txtOuterAlphaValue.text = "$initialOuterAlpha%"
+
+        val initialRingGap = WidgetPrefs.getRingGapDp(this)
+        seekRingGap.progress = initialRingGap
+        txtRingGapValue.text = "$initialRingGap dp"
+
+        val initialCornerRadius = WidgetPrefs.getCornerRadiusDp(this)
+        seekCornerRadius.progress = initialCornerRadius
+        txtCornerRadiusValue.text = "$initialCornerRadius dp"
+
+        switchHaptic.isChecked = WidgetPrefs.isHapticEnabled(this)
+        when (WidgetPrefs.getHapticStyle(this)) {
+            WidgetPrefs.HAPTIC_CONTEXT_CLICK -> rgHapticStyle.check(R.id.rb_haptic_click)
+            else -> rgHapticStyle.check(R.id.rb_haptic_tick)
+        }
+
         fun getSelectedSurfaceStyle(): Int = when (rgFrameStyle.checkedRadioButtonId) {
             R.id.rb_frame_pastel -> WidgetPrefs.SURFACE_PASTEL
             R.id.rb_frame_rich -> WidgetPrefs.SURFACE_RICH_ACCENT
+            R.id.rb_frame_amoled -> WidgetPrefs.SURFACE_AMOLED
             else -> WidgetPrefs.SURFACE_DEEP_RING
         }
 
@@ -128,52 +176,166 @@ class MainActivity : AppCompatActivity() {
             else -> WidgetPrefs.ICON_ADAPTIVE_EMERALD
         }
 
-        fun refreshStylePreview() {
-            when (getSelectedSurfaceStyle()) {
-                WidgetPrefs.SURFACE_DEEP_RING -> previewOuter.setBackgroundResource(R.drawable.bg_outer_pill)
-                WidgetPrefs.SURFACE_PASTEL -> previewOuter.setBackgroundResource(R.drawable.bg_outer_pill_pastel)
-                WidgetPrefs.SURFACE_RICH_ACCENT -> previewOuter.setBackgroundResource(R.drawable.bg_outer_pill_rich)
-            }
+        fun getSelectedHapticStyle(): Int = when (rgHapticStyle.checkedRadioButtonId) {
+            R.id.rb_haptic_click -> WidgetPrefs.HAPTIC_CONTEXT_CLICK
+            else -> WidgetPrefs.HAPTIC_CLOCK_TICK
+        }
 
+        fun performPreviewHaptic(view: View) {
+            if (!switchHaptic.isChecked) return
+            val constant = if (getSelectedHapticStyle() == WidgetPrefs.HAPTIC_CONTEXT_CLICK) {
+                HapticFeedbackConstants.CONTEXT_CLICK
+            } else {
+                HapticFeedbackConstants.CLOCK_TICK
+            }
+            view.performHapticFeedback(constant, HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING)
+        }
+
+        fun refreshActionLabels() {
+            txtMicActionDesc.text = formatActionLabel(selectedMicAction)
+            txtMiddleActionDesc.text = formatActionLabel(selectedMiddleAction)
+            txtAiActionDesc.text = formatActionLabel(selectedAiAction)
+        }
+
+        fun refreshStylePreview() {
+            val density = resources.displayMetrics.density
+            val surfaceStyle = getSelectedSurfaceStyle()
+            val gapDp = seekRingGap.progress
+            val gapPx = (gapDp * density).roundToInt()
+            val radiusDp = seekCornerRadius.progress
+            val outerRadiusPx = radiusDp * density
+            val innerHeightDp = (62 - 2 * gapDp).coerceAtLeast(24)
+            val innerHeightPx = (innerHeightDp * density).roundToInt()
+            val innerRadiusPx = (radiusDp - gapDp).coerceIn(4, innerHeightDp / 2) * density
+
+            bgOuterLayer.setImageDrawable(
+                WidgetDrawableRenderer.createOuterDrawable(this, outerRadiusPx, surfaceStyle)
+            )
+            bgInnerPillLayer.setImageDrawable(
+                WidgetDrawableRenderer.createInnerDrawable(this, innerRadiusPx, surfaceStyle)
+            )
+            bgAiCircleLayer.setImageDrawable(
+                WidgetDrawableRenderer.createInnerDrawable(this, innerRadiusPx, surfaceStyle)
+            )
+
+            previewOuter.setPadding(gapPx, gapPx, gapPx, gapPx)
+            previewRingSpacer.layoutParams = previewRingSpacer.layoutParams.apply { width = gapPx }
+            previewAiWrapper.layoutParams = previewAiWrapper.layoutParams.apply { width = innerHeightPx }
+
+            val isLensMiddle = selectedMiddleAction == WidgetPrefs.ACTION_GOOGLE_LENS
             when (getSelectedIconStyle()) {
                 WidgetPrefs.ICON_ADAPTIVE_EMERALD -> {
                     previewLogo.setImageResource(R.drawable.ic_google_logo_ref)
                     previewMic.setImageResource(R.drawable.ic_mic_ref)
-                    previewGemini.setImageResource(R.drawable.ic_gemini_ref)
+                    previewGemini.setImageResource(if (isLensMiddle) R.drawable.ic_lens_color else R.drawable.ic_gemini_ref)
                     previewAi.setImageResource(R.drawable.ic_ai_mode_ref)
                 }
                 WidgetPrefs.ICON_DYNAMIC_MONET -> {
                     previewLogo.setImageResource(R.drawable.ic_google_logo_mono)
                     previewMic.setImageResource(R.drawable.ic_mic_mono)
-                    previewGemini.setImageResource(R.drawable.ic_gemini_mono)
+                    previewGemini.setImageResource(if (isLensMiddle) R.drawable.ic_lens_mono else R.drawable.ic_gemini_mono)
                     previewAi.setImageResource(R.drawable.ic_ai_mode_mono)
                 }
                 WidgetPrefs.ICON_CLASSIC_COLOR -> {
                     previewLogo.setImageResource(R.drawable.ic_google_logo_color)
                     previewMic.setImageResource(R.drawable.ic_mic_color)
-                    previewGemini.setImageResource(R.drawable.ic_gemini_color)
+                    previewGemini.setImageResource(if (isLensMiddle) R.drawable.ic_lens_color else R.drawable.ic_gemini_color)
                     previewAi.setImageResource(R.drawable.ic_ai_mode_color)
                 }
             }
         }
 
-        fun refreshOpacityPreview(progress: Int = seekOpacity.progress) {
-            txtOpacityValue.text = "$progress%"
-            previewOuter.alpha = progress / 100f
+        fun refreshOpacityPreview(
+            opacity: Int = seekOpacity.progress,
+            outerAlpha: Int = seekOuterAlpha.progress
+        ) {
+            txtOpacityValue.text = "$opacity%"
+            txtOuterAlphaValue.text = "$outerAlpha%"
+            val mainAlpha = opacity / 100f
+            previewOuter.alpha = mainAlpha
+            bgOuterLayer.alpha = mainAlpha * (outerAlpha / 100f)
         }
 
+        refreshActionLabels()
         refreshStylePreview()
-        refreshOpacityPreview(initialOpacity)
+        refreshOpacityPreview(initialOpacity, initialOuterAlpha)
 
-        rgFrameStyle.setOnCheckedChangeListener { _, _ -> refreshStylePreview() }
-        rgIconStyle.setOnCheckedChangeListener { _, _ -> refreshStylePreview() }
+        rgFrameStyle.setOnCheckedChangeListener { v, _ ->
+            performPreviewHaptic(v)
+            refreshStylePreview()
+        }
+        rgIconStyle.setOnCheckedChangeListener { v, _ ->
+            performPreviewHaptic(v)
+            refreshStylePreview()
+        }
+        rgHapticStyle.setOnCheckedChangeListener { v, _ ->
+            performPreviewHaptic(v)
+        }
+
         seekOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                refreshOpacityPreview(progress)
+                refreshOpacityPreview(progress, seekOuterAlpha.progress)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
+
+        seekOuterAlpha.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                refreshOpacityPreview(seekOpacity.progress, progress)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        seekRingGap.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                txtRingGapValue.text = "$progress dp"
+                refreshStylePreview()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        seekCornerRadius.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                txtCornerRadiusValue.text = "$progress dp"
+                refreshStylePreview()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        rowMicAction.setOnClickListener { v ->
+            performPreviewHaptic(v)
+            showActionPickerDialog(selectedMicAction) { chosen ->
+                selectedMicAction = chosen
+                refreshActionLabels()
+            }
+        }
+        rowMiddleAction.setOnClickListener { v ->
+            performPreviewHaptic(v)
+            showActionPickerDialog(selectedMiddleAction) { chosen ->
+                selectedMiddleAction = chosen
+                refreshActionLabels()
+                refreshStylePreview()
+            }
+        }
+        rowAiAction.setOnClickListener { v ->
+            performPreviewHaptic(v)
+            showActionPickerDialog(selectedAiAction) { chosen ->
+                selectedAiAction = chosen
+                refreshActionLabels()
+            }
+        }
+
+        // Interactive live preview clicks
+        previewLogo.setOnClickListener { v -> performPreviewHaptic(v) }
+        previewPillContainer.setOnClickListener { v -> performPreviewHaptic(v) }
+        previewTouchArea.setOnClickListener { v -> performPreviewHaptic(v) }
+        previewMic.setOnClickListener { v -> performPreviewHaptic(v) }
+        previewGemini.setOnClickListener { v -> performPreviewHaptic(v) }
+        previewAi.setOnClickListener { v -> performPreviewHaptic(v) }
 
         btnPinWidget.setOnClickListener {
             val appWidgetManager = AppWidgetManager.getInstance(this)
@@ -191,11 +353,20 @@ class MainActivity : AppCompatActivity() {
 
         switchReplaceDock.isChecked = WidgetPrefs.isReplaceDockEnabled(this)
 
-        btnSave.setOnClickListener {
+        btnSave.setOnClickListener { v ->
+            performPreviewHaptic(v)
             val replaceDock = switchReplaceDock.isChecked
             WidgetPrefs.setSurfaceStyle(this, getSelectedSurfaceStyle())
             WidgetPrefs.setIconStyle(this, getSelectedIconStyle())
             WidgetPrefs.setOpacityPercent(this, seekOpacity.progress)
+            WidgetPrefs.setOuterAlphaPercent(this, seekOuterAlpha.progress)
+            WidgetPrefs.setRingGapDp(this, seekRingGap.progress)
+            WidgetPrefs.setCornerRadiusDp(this, seekCornerRadius.progress)
+            WidgetPrefs.setHapticEnabled(this, switchHaptic.isChecked)
+            WidgetPrefs.setHapticStyle(this, getSelectedHapticStyle())
+            WidgetPrefs.setMicAction(this, selectedMicAction)
+            WidgetPrefs.setMiddleAction(this, selectedMiddleAction)
+            WidgetPrefs.setAiAction(this, selectedAiAction)
             WidgetPrefs.setReplaceDockEnabled(this, replaceDock)
 
             ClassicSearchWidgetProvider.updateAllWidgets(this)
@@ -417,6 +588,116 @@ class MainActivity : AppCompatActivity() {
             }
             else -> {
                 grantAndEnableAsync(showSuccessToast = true)
+            }
+        }
+    }
+
+    private fun formatActionLabel(action: String): String {
+        return when {
+            action == WidgetPrefs.ACTION_VOICE_SEARCH -> getString(R.string.action_voice_search)
+            action == WidgetPrefs.ACTION_GEMINI -> getString(R.string.action_gemini)
+            action == WidgetPrefs.ACTION_GOOGLE_LENS -> getString(R.string.action_google_lens)
+            action == WidgetPrefs.ACTION_AI_MODE -> getString(R.string.action_ai_mode)
+            action == WidgetPrefs.ACTION_CHATGPT -> getString(R.string.action_chatgpt)
+            action == WidgetPrefs.ACTION_PERPLEXITY -> getString(R.string.action_perplexity)
+            action == WidgetPrefs.ACTION_QR_SCANNER -> getString(R.string.action_qr_scanner)
+            action == WidgetPrefs.ACTION_BROWSER_BRAVE -> getString(R.string.action_browser_brave)
+            action == WidgetPrefs.ACTION_BROWSER_FIREFOX -> getString(R.string.action_browser_firefox)
+            action == WidgetPrefs.ACTION_BROWSER_CROMITE -> getString(R.string.action_browser_cromite)
+            action.startsWith(WidgetPrefs.PREFIX_APP) -> {
+                val pkg = action.removePrefix(WidgetPrefs.PREFIX_APP)
+                val appLabel = try {
+                    val ai = packageManager.getApplicationInfo(pkg, 0)
+                    packageManager.getApplicationLabel(ai).toString()
+                } catch (_: Exception) {
+                    pkg
+                }
+                "$appLabel ($pkg)"
+            }
+            else -> getString(R.string.action_voice_search)
+        }
+    }
+
+    private fun showActionPickerDialog(currentAction: String, onSelected: (String) -> Unit) {
+        val presetCodes = arrayOf(
+            WidgetPrefs.ACTION_VOICE_SEARCH,
+            WidgetPrefs.ACTION_GEMINI,
+            WidgetPrefs.ACTION_GOOGLE_LENS,
+            WidgetPrefs.ACTION_AI_MODE,
+            WidgetPrefs.ACTION_CHATGPT,
+            WidgetPrefs.ACTION_PERPLEXITY,
+            WidgetPrefs.ACTION_QR_SCANNER,
+            WidgetPrefs.ACTION_BROWSER_BRAVE,
+            WidgetPrefs.ACTION_BROWSER_FIREFOX,
+            WidgetPrefs.ACTION_BROWSER_CROMITE
+        )
+        val labels = arrayOf(
+            getString(R.string.action_voice_search),
+            getString(R.string.action_gemini),
+            getString(R.string.action_google_lens),
+            getString(R.string.action_ai_mode),
+            getString(R.string.action_chatgpt),
+            getString(R.string.action_perplexity),
+            getString(R.string.action_qr_scanner),
+            getString(R.string.action_browser_brave),
+            getString(R.string.action_browser_firefox),
+            getString(R.string.action_browser_cromite),
+            getString(R.string.btn_choose_custom_app)
+        )
+        val checkedIndex = presetCodes.indexOf(currentAction).let {
+            if (it >= 0) it else if (currentAction.startsWith(WidgetPrefs.PREFIX_APP)) labels.lastIndex else -1
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.dialog_select_action)
+            .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
+                dialog.dismiss()
+                if (which == labels.lastIndex) {
+                    showInstalledAppsDialog(onSelected)
+                } else {
+                    onSelected(presetCodes[which])
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showInstalledAppsDialog(onSelected: (String) -> Unit) {
+        val appCtx = applicationContext
+        ioExecutor.execute {
+            val pm = appCtx.packageManager
+            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+            val resolved = try {
+                pm.queryIntentActivities(mainIntent, 0)
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val apps = resolved
+                .mapNotNull { info ->
+                    val pkg = info.activityInfo?.packageName ?: return@mapNotNull null
+                    val label = info.loadLabel(pm)?.toString()?.takeIf { it.isNotBlank() } ?: pkg
+                    label to pkg
+                }
+                .distinctBy { it.second }
+                .sortedBy { it.first.lowercase() }
+
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (apps.isEmpty()) {
+                    Toast.makeText(this, "No launchable apps found", Toast.LENGTH_SHORT).show()
+                    return@runOnUiThread
+                }
+                val itemLabels = apps.map { "${it.first} (${it.second})" }.toTypedArray()
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.dialog_choose_app)
+                    .setItems(itemLabels) { dialog, which ->
+                        dialog.dismiss()
+                        onSelected("${WidgetPrefs.PREFIX_APP}${apps[which].second}")
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
             }
         }
     }

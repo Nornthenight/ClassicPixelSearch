@@ -32,20 +32,16 @@ The search pill dynamically matches your wallpaper and Pixel Launcher's light/da
 ## Key Features
 
 - **Pixel Launcher Aesthetic & Micro-interactions**:
-  - Classic rounded pill search bar with Google "G" logo, Mic, Lens, and Gemini / AI Mode buttons.
-  - Pixel 8 / Pixel 9 dynamic color palette synchronization (Default Light/Dark, Pastel, and Rich variants).
-  - Authentic touch ripples, elevation shadows, and dock padding matching Pixel Launcher specifications.
-- **Smart Launcher OneSearch Synchronization**:
-  - **Real-Time Drawer Sync**: Monitors foreground transitions to automatically invoke Pixel Launcher's native All Apps drawer search (`com.google.android.apps.nexuslauncher`).
-  - **Enter QuickLaunch**: Typing an app name highlights the best candidate and launches it immediately on pressing Enter (Keyevent 66).
-- **Dual-Engine Operation (Shizuku + Accessibility)**:
-  - **Shizuku Integration**: High-performance, low-overhead window state detection without requiring root.
-  - **Accessibility Fallback (`LauncherStateService`)**: Ensures uninterrupted synchronization even if Shizuku is not running.
-- **Quick Tap Actions**:
-  - Direct intent dispatches for Google Search (`SearchTapActivity`), Assistant / Gemini AI, Google Voice Search, and Google Lens.
-- **Customizable In-App Preferences**:
-  - Live preview card to test your configuration before placing widgets.
-  - Toggle AI Mode icon, voice search microphone, Google Lens icon, and theme palettes.
+  - Classic rounded pill search bar with Google "G" logo, Mic, Gemini / Lens, and AI Mode buttons.
+  - Dynamic Material You / Monet color palette synchronization (Deep Ring, Soft Pastel, Bold Accent, and **Pure AMOLED Black / High Contrast**).
+  - Pixel-style haptic feedback (`CLOCK_TICK` or `CONTEXT_CLICK`) on search capsule and icon taps.
+- **Fine-Grained Geometry & Framing Controls**:
+  - Independent sliders for **Outer Ring Opacity (`0–100%`)**, **Concentric Ring Gap (`2–12 dp`)**, and **Corner Radius (`12–36 dp`)** to fit `4x5` and `5x5` desktop grids.
+- **Custom Right-Zone Button Remapping**:
+  - Assign custom actions to the Microphone, Middle (Gemini/Lens), and Right (AI Circle) buttons: Google Voice Search, Gemini, Google Lens, Google AI Mode (`udm=50`), ChatGPT, Perplexity, System QR Code Scanner, Brave, Firefox, Cromite, or **any installed application**.
+- **Seamless Dock Integration (Shizuku + Accessibility)**:
+  - **Shizuku Integration**: One-tap `WRITE_SECURE_SETTINGS` grant to mount the widget directly inside Pixel Launcher's bottom search dock (`selected_search_engine`).
+  - **Wallpaper & Monet Sync (`LauncherStateService`)**: Automatically refreshes widget colors when the wallpaper or dynamic theme changes.
 
 ---
 

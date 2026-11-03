@@ -23,5 +23,10 @@
     <color name="ref_teal_vivid">#26A69A</color>
     <color name="ref_teal_soft">#80CBC4</color>
 
+    <!-- AMOLED / Pure Black Style -->
+    <color name="widget_outer_surface_amoled">#000000</color>
+    <color name="widget_inner_surface_amoled">#0A0A0A</color>
+    <color name="widget_stroke_amoled">#333333</color>
+
     <color name="widget_hint_text">@android:color/system_neutral2_300</color>
 </resources>
