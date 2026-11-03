@@ -4,7 +4,7 @@ A native Android dock search widget for Google Pixel devices (Pixel Launcher) th
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%2012%2B-green.svg)](https://developer.android.com)
-[![Release](https://img.shields.io/github/v/release/Nornthenight/ClassicPixelSearch)](https://github.com/Nornthenight/ClassicPixelSearch/releases)
+[![Release](https://img.shields.io/github/v/release/Nornthenight/ClassicPixelSearch?include_prereleases&label=release)](https://github.com/Nornthenight/ClassicPixelSearch/releases)
 
 ---
 
@@ -60,11 +60,11 @@ The search pill dynamically matches your wallpaper and Pixel Launcher's light/da
 ## Installation & Setup
 
 ### 1. Download & Install
-Download the ready-to-use APK from [GitHub Releases](https://github.com/Nornthenight/ClassicPixelSearch/releases/latest) and install it on your device:
+Download the latest stable (`v1.2.1`) or beta (`v1.3-beta`) APK from [GitHub Releases](https://github.com/Nornthenight/ClassicPixelSearch/releases) and install it on your Pixel phone or Pixel Tablet:
 
 ```bash
-# Or install via ADB
-adb install -r ClassicPixelSearch-v1.2.1.apk
+# Install v1.3-beta via ADB
+adb install -r ClassicPixelSearch-v1.3-beta.apk
 ```
 
 ### 2. Configure Permissions
