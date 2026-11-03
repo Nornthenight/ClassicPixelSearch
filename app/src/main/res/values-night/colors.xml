@@ -29,4 +29,7 @@
     <color name="widget_stroke_amoled">#333333</color>
 
     <color name="widget_hint_text">@android:color/system_neutral2_300</color>
+
+    <color name="settings_bg">@android:color/system_neutral1_900</color>
+    <color name="settings_card_bg">@android:color/system_neutral1_800</color>
 </resources>

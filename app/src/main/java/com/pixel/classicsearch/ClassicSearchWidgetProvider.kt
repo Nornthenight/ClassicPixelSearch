@@ -75,8 +75,7 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
             val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
             val minWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) ?: 0
             val maxWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0) ?: 0
-            val isLandscape = context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-            val widgetWidthDp = (if (isLandscape && maxWidth > 0) maxWidth else if (minWidth > 0) minWidth else 340).coerceIn(240, 800)
+            val widgetWidthDp = (if (minWidth > 0) minWidth else 320).coerceIn(220, 600)
 
             val density = context.resources.displayMetrics.density
             val outerWidthPx = (widgetWidthDp * density).roundToInt()

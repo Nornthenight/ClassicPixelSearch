@@ -10,7 +10,8 @@
         android:layout_width="match_parent"
         android:layout_height="62dp"
         android:layout_gravity="center_vertical"
-        android:scaleType="fitXY" />
+        android:scaleType="fitXY"
+        android:src="@drawable/bg_outer_pill" />
 
     <!-- Outer container holding inner pill and AI button -->
     <LinearLayout
@@ -34,7 +35,8 @@
                 android:id="@+id/bg_inner_pill_layer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:scaleType="fitXY" />
+                android:scaleType="fitXY"
+                android:src="@drawable/bg_inner_pill" />
 
             <!-- Inner search capsule (Google G + Search Field + Voice Mic + Gemini / Lens) -->
             <LinearLayout
@@ -91,8 +93,8 @@
             </LinearLayout>
         </FrameLayout>
 
-        <!-- Concentric gap spacer between pill and AI button -->
-        <View
+        <!-- Concentric gap spacer between pill and AI button (must be @RemoteView class) -->
+        <FrameLayout
             android:id="@+id/ring_gap_spacer"
             android:layout_width="6dp"
             android:layout_height="match_parent" />
@@ -109,7 +111,8 @@
                 android:id="@+id/bg_ai_circle_layer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:scaleType="fitXY" />
+                android:scaleType="fitXY"
+                android:src="@drawable/bg_ai_circle" />
 
             <!-- AI button icon (remappable action) -->
             <ImageView
