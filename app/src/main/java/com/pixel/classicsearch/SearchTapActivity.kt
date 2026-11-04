@@ -108,14 +108,24 @@ class SearchTapActivity : Activity() {
 
     private fun launchGoogleSearch(intent: Intent?) {
         val query = intent?.getStringExtra(SearchManager.QUERY)
-        if (!query.isNullOrBlank()) {
+            ?: intent?.getStringExtra("query")
+            ?: intent?.getStringExtra(Intent.EXTRA_TEXT)
+
+        val trimmedQuery = query?.trim()
+        if (!trimmedQuery.isNullOrBlank()) {
+            val matchedApp = findMatchingAppLaunchIntent(trimmedQuery)
+            if (matchedApp != null) {
+                safeStartActivity(matchedApp)
+                return
+            }
+
             val queryIntent = Intent(Intent.ACTION_WEB_SEARCH).apply {
                 setPackage(GOOGLE_PACKAGE)
-                putExtra(SearchManager.QUERY, query)
+                putExtra(SearchManager.QUERY, trimmedQuery)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
             val fallback = Intent(Intent.ACTION_WEB_SEARCH).apply {
-                putExtra(SearchManager.QUERY, query)
+                putExtra(SearchManager.QUERY, trimmedQuery)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             safeStartActivity(resolveIntentWithFallback(queryIntent, fallback))
@@ -142,6 +152,53 @@ class SearchTapActivity : Activity() {
             }
         }
         safeStartActivity(resolveIntentWithFallback(primary, fallback))
+    }
+
+    private fun findMatchingAppLaunchIntent(query: String): Intent? {
+        return try {
+            val pm = packageManager
+            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+            val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
+            if (resolveInfos.isEmpty()) return null
+
+            // 1. Exact match on app label (case-insensitive)
+            for (info in resolveInfos) {
+                val label = info.loadLabel(pm).toString()
+                if (label.equals(query, ignoreCase = true)) {
+                    val pkgName = info.activityInfo.packageName
+                    return pm.getLaunchIntentForPackage(pkgName)?.apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                }
+            }
+
+            // 2. Exact match on package name
+            for (info in resolveInfos) {
+                val pkgName = info.activityInfo.packageName
+                if (pkgName.equals(query, ignoreCase = true)) {
+                    return pm.getLaunchIntentForPackage(pkgName)?.apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                }
+            }
+
+            // 3. Prefix match on app label (e.g. "Tele" -> "Telegram")
+            val prefixMatches = resolveInfos.filter {
+                it.loadLabel(pm).toString().startsWith(query, ignoreCase = true)
+            }
+            if (prefixMatches.size == 1) {
+                val pkgName = prefixMatches[0].activityInfo.packageName
+                return pm.getLaunchIntentForPackage(pkgName)?.apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            }
+
+            null
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun dispatchAction(action: String, defaultAction: String) {
