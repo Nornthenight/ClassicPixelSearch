@@ -12,7 +12,7 @@ class LauncherEnginePolicyTest {
     fun `resolveTargetEngine when dock replacement disabled returns null`() {
         val target = LauncherEnginePolicy.resolveTargetEngine(
             isDockReplacementEnabled = false,
-            isDrawerInputFocused = true
+            isActivelySearchingInDrawer = true
         )
         assertNull(target)
     }
@@ -21,17 +21,17 @@ class LauncherEnginePolicyTest {
     fun `resolveTargetEngine activates google search when user is focused in drawer search`() {
         val target = LauncherEnginePolicy.resolveTargetEngine(
             isDockReplacementEnabled = true,
-            isDrawerInputFocused = true
+            isActivelySearchingInDrawer = true
         )
         assertEquals(ServiceHelper.GOOGLE_SEARCH_PACKAGE, target)
     }
 
     @Test
-    fun `resolveTargetEngine immediately restores classic search when drawer loses focus`() {
-        // When drawer swipe-down starts, focus is lost instantly, restoring ClassicSearch before animation completes
+    fun `resolveTargetEngine immediately restores classic search when drawer search is not actively focused`() {
+        // When user swipes down to close drawer, focus is lost, instantly switching to ClassicSearch
         val target = LauncherEnginePolicy.resolveTargetEngine(
             isDockReplacementEnabled = true,
-            isDrawerInputFocused = false
+            isActivelySearchingInDrawer = false
         )
         assertEquals(ServiceHelper.CLASSIC_SEARCH_PACKAGE, target)
     }

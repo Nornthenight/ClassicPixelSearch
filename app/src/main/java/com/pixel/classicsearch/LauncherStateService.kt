@@ -21,6 +21,8 @@ class LauncherStateService : AccessibilityService() {
         private const val PIXEL_LAUNCHER_PKG = "com.google.android.apps.nexuslauncher"
         private const val ID_SEARCH_INPUT = "com.google.android.apps.nexuslauncher:id/input"
         private const val ID_SEARCH_ALL_APPS = "com.google.android.apps.nexuslauncher:id/search_container_all_apps"
+        private const val ID_SEARCH_RESULTS = "com.google.android.apps.nexuslauncher:id/search_results_list_view"
+        private const val ID_APPS_LIST = "com.google.android.apps.nexuslauncher:id/apps_list_view"
         private const val ID_SEARCH_CONTAINER_HOTSEAT = "com.google.android.apps.nexuslauncher:id/search_container_hotseat"
     }
 
@@ -40,10 +42,11 @@ class LauncherStateService : AccessibilityService() {
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
                 AccessibilityEvent.TYPE_VIEW_FOCUSED or
-                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or
+                AccessibilityEvent.TYPE_VIEW_SCROLLED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-        info.notificationTimeout = 50
+        info.notificationTimeout = 10
         serviceInfo = info
 
         // Register ContentObserver on theme_customization_overlay_packages
@@ -101,7 +104,7 @@ class LauncherStateService : AccessibilityService() {
 
         val pkg = event.packageName?.toString()
         if (pkg != null && pkg != PIXEL_LAUNCHER_PKG) {
-            // User left launcher -> ensure dock engine is restored
+            // User launched an app or switched away -> ensure dock engine is restored
             ensureClassicSearchEngine()
             return
         }
@@ -113,6 +116,9 @@ class LauncherStateService : AccessibilityService() {
             }
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 handleWindowStateChanged()
+            }
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                handleViewScrolled(event)
             }
         }
     }
@@ -127,10 +133,10 @@ class LauncherStateService : AccessibilityService() {
 
                 if (isInAllApps && !isInHotseat) {
                     if (source.isFocused) {
-                        // User is actively typing/focused in drawer -> enable OneSearch highlight & launch
+                        // User actively focused in drawer search input -> activate Google OneSearch
                         applyEngine(ServiceHelper.GOOGLE_SEARCH_PACKAGE)
                     } else {
-                        // Focus lost (e.g. start of swipe down gesture) -> immediately restore ClassicSearch!
+                        // Input lost focus (e.g. user swiped down or tapped back) -> immediately restore ClassicSearch!
                         // This fires 300ms before drawer finishes falling down, eliminating dock flicker!
                         ensureClassicSearchEngine()
                     }
@@ -153,12 +159,9 @@ class LauncherStateService : AccessibilityService() {
                 return
             }
 
-            // Only remain in Google OneSearch if the drawer search input is CURRENTLY FOCUSED!
-            // Crucial fix: do NOT check !text.isNullOrEmpty(), because text remains in the field while
-            // the drawer is falling down. By checking strictly `it.isFocused`, we restore ClassicSearch
-            // at the exact start of the close animation.
             val allAppsContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_ALL_APPS)
-            val isActivelyFocusedInDrawer = allAppsContainers.any { container ->
+            val isDrawerVisible = allAppsContainers.any { it.isVisibleToUser }
+            val isSearchingInDrawer = isDrawerVisible && allAppsContainers.any { container ->
                 val inputs = container.findAccessibilityNodeInfosByViewId(ID_SEARCH_INPUT)
                 val focused = inputs.any { it.isFocused }
                 inputs.forEach { try { it.recycle() } catch (_: Exception) {} }
@@ -168,12 +171,25 @@ class LauncherStateService : AccessibilityService() {
 
             val targetEngine = LauncherEnginePolicy.resolveTargetEngine(
                 isDockReplacementEnabled = WidgetPrefs.isReplaceDockEnabled(this),
-                isDrawerInputFocused = isActivelyFocusedInDrawer
+                isActivelySearchingInDrawer = isSearchingInDrawer
             ) ?: return
 
             applyEngine(targetEngine)
         } finally {
             try { root.recycle() } catch (_: Exception) {}
+        }
+    }
+
+    private fun handleViewScrolled(event: AccessibilityEvent) {
+        val source = try { event.source } catch (_: Exception) { null } ?: return
+        try {
+            val viewId = source.viewIdResourceName
+            if (viewId == ID_APPS_LIST || viewId == ID_SEARCH_RESULTS || viewId == ID_SEARCH_ALL_APPS) {
+                // If scrolling down while closing drawer, check focus to restore dock early
+                handleWindowStateChanged()
+            }
+        } finally {
+            try { source.recycle() } catch (_: Exception) {}
         }
     }
 
