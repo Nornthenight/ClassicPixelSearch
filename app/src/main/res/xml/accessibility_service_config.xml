@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:packageNames="com.google.android.apps.nexuslauncher"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeViewFocused|typeViewTextChanged|typeViewScrolled"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeViewFocused|typeViewTextChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault|flagReportViewIds"
+    android:accessibilityFlags="flagDefault|flagReportViewIds|flagRequestFilterKeyEvents"
     android:canRetrieveWindowContent="true"
-    android:notificationTimeout="10"
+    android:canRequestFilterKeyEvents="true"
+    android:notificationTimeout="20"
     android:description="@string/accessibility_service_description" />

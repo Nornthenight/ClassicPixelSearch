@@ -109,7 +109,12 @@ class SearchTapActivity : Activity() {
     private fun launchGoogleSearch(intent: Intent?) {
         val query = intent?.getStringExtra(SearchManager.QUERY)
             ?: intent?.getStringExtra("query")
+            ?: intent?.getStringExtra("q")
+            ?: intent?.getStringExtra("search_query")
             ?: intent?.getStringExtra(Intent.EXTRA_TEXT)
+            ?: intent?.data?.getQueryParameter("q")
+            ?: intent?.data?.getQueryParameter("query")
+            ?: intent?.data?.getQueryParameter(SearchManager.QUERY)
 
         val trimmedQuery = query?.trim()
         if (!trimmedQuery.isNullOrBlank()) {

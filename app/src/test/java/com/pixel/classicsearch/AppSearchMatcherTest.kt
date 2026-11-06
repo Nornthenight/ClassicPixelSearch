@@ -14,7 +14,9 @@ class AppSearchMatcherTest {
         AppSearchCandidate("com.spotify.music", "Spotify"),
         AppSearchCandidate("com.android.chrome", "Chrome"),
         AppSearchCandidate("com.calculator", "Calculator"),
-        AppSearchCandidate("com.calendar", "Calendar")
+        AppSearchCandidate("com.calendar", "Calendar"),
+        AppSearchCandidate("com.avito.android", "Авито"),
+        AppSearchCandidate("ru.profi.client", "PROFI.RU")
     )
 
     @Test
@@ -50,6 +52,22 @@ class AppSearchMatcherTest {
         assertNotNull(result)
         assertEquals("com.android.vending", result?.packageName)
         assertEquals("Google Play Store", result?.label)
+    }
+
+    @Test
+    fun `query AV matches Avito via phonetic translit or package segment`() {
+        val result = AppSearchMatcher.findBestMatch(sampleCandidates, "AV")
+        assertNotNull(result)
+        assertEquals("com.avito.android", result?.packageName)
+        assertEquals("Авито", result?.label)
+    }
+
+    @Test
+    fun `query R matches PROFI_RU via word-boundary or package segment`() {
+        val result = AppSearchMatcher.findBestMatch(sampleCandidates, "R")
+        assertNotNull(result)
+        assertEquals("ru.profi.client", result?.packageName)
+        assertEquals("PROFI.RU", result?.label)
     }
 
     @Test
