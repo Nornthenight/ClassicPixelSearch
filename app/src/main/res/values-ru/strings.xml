@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pixel Search Dock</string>
+    <string name="widget_name">Поиск Pixel (Двойная рамка + ИИ)</string>
+    <string name="widget_description">Классическая поисковая строка Pixel с концентрической двойной рамкой, ярлыком Gemini, кнопкой режима ИИ и интеграцией в системный док</string>
+
+    <string name="cd_google_search">Приложение Google</string>
+    <string name="cd_voice_search">Голосовой поиск</string>
+    <string name="cd_gemini_app">Приложение Gemini</string>
+    <string name="cd_ai_mode">Поиск Google в режиме ИИ</string>
+
+    <string name="settings_title">Pixel Search Dock</string>
+    <string name="settings_subtitle">Настройка поисковой строки в нижнем доке</string>
+
+    <string name="preview_label">ПРЕДПРОСМОТР ВИДЖЕТА</string>
+
+    <string name="section_system_status">СТАТУС СИСТЕМЫ И SHIZUKU</string>
+    <string name="label_shizuku_status">Статус Shizuku</string>
+    <string name="label_write_secure_status">WRITE_SECURE_SETTINGS</string>
+    <string name="label_a11y_status">Служба поиска в меню всех приложений</string>
+    <string name="btn_request_shizuku">Запросить доступ через Shizuku</string>
+
+    <string name="section_dock_integration">ИНТЕГРАЦИЯ В ДОК</string>
+    <string name="option_replace_dock">Заменить системный поиск Pixel Launcher</string>
+    <string name="option_replace_dock_desc">Встраивает этот виджет прямо в нижний док через WRITE_SECURE_SETTINGS</string>
+
+    <string name="section_frame_color">ВНЕШНЯЯ РАМКА И ЦВЕТА ПОДЛОЖКИ</string>
+    <string name="frame_style_deep">Глубокое кольцо (в тон рекомендуемых приложений)</string>
+    <string name="frame_style_pastel">Мягкая пастельная рамка</string>
+    <string name="frame_style_rich">Насыщенный акцентный контур</string>
+    <string name="frame_style_amoled">AMOLED Black (Глубокий чёрный, высокий контраст)</string>
+
+    <string name="section_button_actions">ДЕЙСТВИЯ КНОПОК ПРАВОЙ ЗОНЫ</string>
+    <string name="label_mic_action">Кнопка микрофона</string>
+    <string name="label_middle_action">Средняя кнопка (Gemini / Lens)</string>
+    <string name="label_ai_action">Правая кнопка (Круг ИИ)</string>
+    <string name="action_voice_search">Голосовой поиск Google</string>
+    <string name="action_gemini">Google Gemini</string>
+    <string name="action_google_lens">Google Объектив (Lens)</string>
+    <string name="action_ai_mode">Режим ИИ Google Поиска (udm=50)</string>
+    <string name="action_chatgpt">ChatGPT</string>
+    <string name="action_perplexity">Perplexity AI</string>
+    <string name="action_qr_scanner">Системный сканер QR-кодов</string>
+    <string name="action_browser_brave">Браузер Brave</string>
+    <string name="action_browser_firefox">Браузер Firefox</string>
+    <string name="action_browser_cromite">Браузер Cromite</string>
+    <string name="btn_choose_custom_app">Выбрать установленное приложение…</string>
+    <string name="dialog_select_action">Выберите действие для кнопки</string>
+    <string name="dialog_choose_app">Выберите установленное приложение</string>
+
+    <string name="section_geometry">ГЕОМЕТРИЯ И ПРОЗРАЧНОСТЬ РАМКИ</string>
+    <string name="label_outer_alpha">Прозрачность внешнего кольца</string>
+    <string name="label_ring_gap">Зазор между кольцами</string>
+    <string name="label_corner_radius">Радиус скругления углов</string>
+
+    <string name="section_haptics">ТАКТИЛЬНЫЙ ОТКЛИК PIXEL HAPTICS</string>
+    <string name="option_haptic_enabled">Вибрация при касании</string>
+    <string name="option_haptic_desc">Чёткий фирменный тактильный отклик Pixel при нажатии на виджет</string>
+    <string name="haptic_style_tick">Мягкий щелчок часов (CLOCK_TICK)</string>
+    <string name="haptic_style_click">Уверенный системный клик (CONTEXT_CLICK)</string>
+
+    <string name="section_icon_color">ЦВЕТОВАЯ ПАЛИТРА ИКОНОК</string>
+    <string name="icon_style_ref">Адаптивный + Изумрудный акцент (Эталон)</string>
+    <string name="icon_style_mono">Динамический Monet (Material You)</string>
+    <string name="icon_style_color">Классический 4-цветный Google</string>
+
+    <string name="section_appearance">ВНЕШНИЙ ВИД</string>
+    <string name="option_opacity">Общая прозрачность виджета</string>
+
+    <string name="btn_add_widget">Добавить как отдельный виджет</string>
+    <string name="btn_save">Применить и обновить док</string>
+    <string name="accessibility_service_description">Обеспечивает работу Google OneSearch в меню всех приложений лаунчера, сохраняя кастомный виджет в доке.</string>
+</resources>

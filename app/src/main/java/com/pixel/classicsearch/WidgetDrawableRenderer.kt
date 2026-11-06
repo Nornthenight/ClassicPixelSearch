@@ -189,7 +189,7 @@ object WidgetDrawableRenderer {
         action: String,
         iconStyle: Int,
         defaultAction: String,
-        targetSizePx: Int = (24f * context.resources.displayMetrics.density).roundToInt().coerceAtLeast(48)
+        targetSizePx: Int = WidgetGeometryHelper.calculateTargetSizePx(context.resources.displayMetrics.density).coerceAtLeast(48)
     ): ActionIcon {
         val resolvedAction = if (action == WidgetPrefs.ACTION_DEFAULT) defaultAction else action
 

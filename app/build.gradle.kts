@@ -11,8 +11,8 @@ android {
         applicationId = "com.pixel.classicsearch"
         minSdk = 31 // Android 12+ (Material You / Monet dynamic colors)
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.4.0"
+        versionCode = 10
+        versionName = "1.4.1-beta1"
     }
 
     buildTypes {
@@ -43,5 +43,7 @@ dependencies {
     implementation(libs.material)
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
+
+    testImplementation(libs.junit)
 }
 

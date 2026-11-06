@@ -1,0 +1,82 @@
+package com.pixel.classicsearch
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+class AppSearchMatcherTest {
+
+    private val sampleCandidates = listOf(
+        AppSearchCandidate("com.google.android.apps.photos", "Google Photos"),
+        AppSearchCandidate("com.android.vending", "Google Play Store"),
+        AppSearchCandidate("org.telegram.messenger", "Telegram"),
+        AppSearchCandidate("com.spotify.music", "Spotify"),
+        AppSearchCandidate("com.android.chrome", "Chrome"),
+        AppSearchCandidate("com.calculator", "Calculator"),
+        AppSearchCandidate("com.calendar", "Calendar")
+    )
+
+    @Test
+    fun `exact label match returns correct candidate case-insensitive`() {
+        val result = AppSearchMatcher.findBestMatch(sampleCandidates, "telegram")
+        assertNotNull(result)
+        assertEquals("org.telegram.messenger", result?.packageName)
+        assertEquals("Telegram", result?.label)
+    }
+
+    @Test
+    fun `exact package name match resolves correctly`() {
+        val result = AppSearchMatcher.findBestMatch(sampleCandidates, "com.spotify.music")
+        assertNotNull(result)
+        assertEquals("Spotify", result?.label)
+    }
+
+    @Test
+    fun `prefix match selects candidate and resolves shortest label on tie`() {
+        val candidates = listOf(
+            AppSearchCandidate("com.test.app2", "Telephony Services"),
+            AppSearchCandidate("org.telegram.messenger", "Telegram")
+        )
+        val result = AppSearchMatcher.findBestMatch(candidates, "Tele")
+        assertNotNull(result)
+        assertEquals("org.telegram.messenger", result?.packageName)
+    }
+
+    @Test
+    fun `word boundary prefix matches inside multi-word titles`() {
+        // Query "Play" should match "Google Play Store"
+        val result = AppSearchMatcher.findBestMatch(sampleCandidates, "Play")
+        assertNotNull(result)
+        assertEquals("com.android.vending", result?.packageName)
+        assertEquals("Google Play Store", result?.label)
+    }
+
+    @Test
+    fun `word boundary prefix matches word separated by hyphen or dot`() {
+        val customCandidates = listOf(
+            AppSearchCandidate("com.foo.bar", "My-Special-Tool"),
+            AppSearchCandidate("com.baz.qux", "Other App")
+        )
+        val result = AppSearchMatcher.findBestMatch(customCandidates, "Special")
+        assertNotNull(result)
+        assertEquals("com.foo.bar", result?.packageName)
+    }
+
+    @Test
+    fun `blank or empty query returns null`() {
+        assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, ""))
+        assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "   "))
+        assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, null))
+    }
+
+    @Test
+    fun `empty candidates list returns null`() {
+        assertNull(AppSearchMatcher.findBestMatch(emptyList(), "Telegram"))
+    }
+
+    @Test
+    fun `non matching query returns null`() {
+        assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "ZzzNonExistent"))
+    }
+}

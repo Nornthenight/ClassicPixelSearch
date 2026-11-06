@@ -163,59 +163,17 @@ class SearchTapActivity : Activity() {
             val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
             if (resolveInfos.isEmpty()) return null
 
-            // 1. Exact match on app label (case-insensitive)
-            for (info in resolveInfos) {
-                val label = info.loadLabel(pm).toString()
-                if (label.equals(query, ignoreCase = true)) {
-                    val pkgName = info.activityInfo.packageName
-                    return pm.getLaunchIntentForPackage(pkgName)?.apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                }
+            val candidates = resolveInfos.map {
+                AppSearchCandidate(
+                    packageName = it.activityInfo.packageName,
+                    label = it.loadLabel(pm).toString()
+                )
             }
 
-            // 2. Exact match on package name
-            for (info in resolveInfos) {
-                val pkgName = info.activityInfo.packageName
-                if (pkgName.equals(query, ignoreCase = true)) {
-                    return pm.getLaunchIntentForPackage(pkgName)?.apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                }
+            val bestMatch = AppSearchMatcher.findBestMatch(candidates, query) ?: return null
+            pm.getLaunchIntentForPackage(bestMatch.packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-
-            // 3. Prefix match on app label (e.g. "Tele" -> "Telegram")
-            val prefixMatches = resolveInfos.filter {
-                it.loadLabel(pm).toString().startsWith(query, ignoreCase = true)
-            }
-            if (prefixMatches.isNotEmpty()) {
-                val best = prefixMatches.minByOrNull { it.loadLabel(pm).toString().length }
-                val pkgName = best?.activityInfo?.packageName
-                if (pkgName != null) {
-                    return pm.getLaunchIntentForPackage(pkgName)?.apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                }
-            }
-
-            // 4. Word-boundary prefix match (e.g. "Play" -> "Google Play Store")
-            val wordMatches = resolveInfos.filter { info ->
-                val label = info.loadLabel(pm).toString()
-                label.split(" ", "-", "_", ".").any { word ->
-                    word.startsWith(query, ignoreCase = true)
-                }
-            }
-            if (wordMatches.isNotEmpty()) {
-                val best = wordMatches.minByOrNull { it.loadLabel(pm).toString().length }
-                val pkgName = best?.activityInfo?.packageName
-                if (pkgName != null) {
-                    return pm.getLaunchIntentForPackage(pkgName)?.apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                }
-            }
-
-            null
         } catch (_: Exception) {
             null
         }
