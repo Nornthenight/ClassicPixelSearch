@@ -3,7 +3,6 @@ package com.pixel.classicsearch
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.WallpaperManager
-import android.content.Intent
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Handler
@@ -11,7 +10,6 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
-import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import java.util.concurrent.Executors
@@ -23,8 +21,7 @@ class LauncherStateService : AccessibilityService() {
         private const val PIXEL_LAUNCHER_PKG = "com.google.android.apps.nexuslauncher"
         private const val ID_SEARCH_INPUT = "com.google.android.apps.nexuslauncher:id/input"
         private const val ID_SEARCH_ALL_APPS = "com.google.android.apps.nexuslauncher:id/search_container_all_apps"
-        private const val ID_SEARCH_RESULTS = "com.google.android.apps.nexuslauncher:id/search_results_list_view"
-        private const val ID_APPS_LIST = "com.google.android.apps.nexuslauncher:id/apps_list_view"
+        private const val ID_SEARCH_CONTAINER_HOTSEAT = "com.google.android.apps.nexuslauncher:id/search_container_hotseat"
     }
 
     private val executor = Executors.newSingleThreadExecutor()
@@ -35,7 +32,6 @@ class LauncherStateService : AccessibilityService() {
     private var themeCustomizationObserver: ContentObserver? = null
     private var colorsChangedListener: WallpaperManager.OnColorsChangedListener? = null
     private var debouncedUpdateRunnable: Runnable? = null
-    private var highlightRunnable: Runnable? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -43,11 +39,10 @@ class LauncherStateService : AccessibilityService() {
 
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or
-                AccessibilityEvent.TYPE_VIEW_FOCUSED
+                AccessibilityEvent.TYPE_VIEW_FOCUSED or
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
-                AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         info.notificationTimeout = 50
         serviceInfo = info
 
@@ -106,28 +101,42 @@ class LauncherStateService : AccessibilityService() {
 
         val pkg = event.packageName?.toString()
         if (pkg != null && pkg != PIXEL_LAUNCHER_PKG) {
+            // User left launcher -> ensure dock engine is restored
+            ensureClassicSearchEngine()
             return
         }
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                ensureClassicSearchEngine()
+            AccessibilityEvent.TYPE_VIEW_FOCUSED,
+            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
+                handleViewFocusOrTextEvent(event)
             }
-            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
-            AccessibilityEvent.TYPE_VIEW_FOCUSED -> {
-                handleSearchInputEvent(event)
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                handleWindowStateChanged()
             }
         }
     }
 
-    private fun handleSearchInputEvent(event: AccessibilityEvent) {
+    private fun handleViewFocusOrTextEvent(event: AccessibilityEvent) {
         val source = try { event.source } catch (_: Exception) { null } ?: return
         try {
             val viewId = source.viewIdResourceName
             if (viewId == ID_SEARCH_INPUT) {
-                val text = source.text?.toString()?.trim()
-                if (!text.isNullOrEmpty()) {
-                    scheduleHighlightFirstResult()
+                val isInAllApps = isNodeInsideContainer(source, ID_SEARCH_ALL_APPS)
+                val isInHotseat = isNodeInsideContainer(source, ID_SEARCH_CONTAINER_HOTSEAT)
+
+                if (isInAllApps && !isInHotseat) {
+                    if (source.isFocused) {
+                        // User is actively typing/focused in drawer -> enable OneSearch highlight & launch
+                        applyEngine(ServiceHelper.GOOGLE_SEARCH_PACKAGE)
+                    } else {
+                        // Focus lost (e.g. start of swipe down gesture) -> immediately restore ClassicSearch!
+                        // This fires 300ms before drawer finishes falling down, eliminating dock flicker!
+                        ensureClassicSearchEngine()
+                    }
+                } else if (isInHotseat) {
+                    // Hotseat dock touch or focus -> strictly keep ClassicSearch
+                    ensureClassicSearchEngine()
                 }
             }
         } finally {
@@ -135,128 +144,65 @@ class LauncherStateService : AccessibilityService() {
         }
     }
 
-    private fun scheduleHighlightFirstResult() {
-        highlightRunnable?.let { mainHandler.removeCallbacks(it) }
-        val runnable = Runnable {
-            highlightFirstSearchResult()
-            highlightRunnable = null
-        }
-        highlightRunnable = runnable
-        mainHandler.postDelayed(runnable, 80L)
-    }
-
-    private fun highlightFirstSearchResult() {
+    private fun handleWindowStateChanged() {
         val root = try { rootInActiveWindow } catch (_: Exception) { null } ?: return
         try {
-            val resultContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_RESULTS)
-                .ifEmpty { root.findAccessibilityNodeInfosByViewId(ID_APPS_LIST) }
-
-            for (container in resultContainers) {
-                if (container.childCount > 0) {
-                    val firstChild = container.getChild(0)
-                    if (firstChild != null) {
-                        firstChild.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS)
-                        try { firstChild.recycle() } catch (_: Exception) {}
-                        break
-                    }
-                }
-                try { container.recycle() } catch (_: Exception) {}
+            val pkg = root.packageName?.toString()
+            if (pkg != PIXEL_LAUNCHER_PKG) {
+                ensureClassicSearchEngine()
+                return
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to highlight search result", e)
+
+            // Only remain in Google OneSearch if the drawer search input is CURRENTLY FOCUSED!
+            // Crucial fix: do NOT check !text.isNullOrEmpty(), because text remains in the field while
+            // the drawer is falling down. By checking strictly `it.isFocused`, we restore ClassicSearch
+            // at the exact start of the close animation.
+            val allAppsContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_ALL_APPS)
+            val isActivelyFocusedInDrawer = allAppsContainers.any { container ->
+                val inputs = container.findAccessibilityNodeInfosByViewId(ID_SEARCH_INPUT)
+                val focused = inputs.any { it.isFocused }
+                inputs.forEach { try { it.recycle() } catch (_: Exception) {} }
+                focused
+            }
+            allAppsContainers.forEach { try { it.recycle() } catch (_: Exception) {} }
+
+            val targetEngine = LauncherEnginePolicy.resolveTargetEngine(
+                isDockReplacementEnabled = WidgetPrefs.isReplaceDockEnabled(this),
+                isDrawerInputFocused = isActivelyFocusedInDrawer
+            ) ?: return
+
+            applyEngine(targetEngine)
         } finally {
             try { root.recycle() } catch (_: Exception) {}
         }
     }
 
-    override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_UP &&
-            (event.keyCode == KeyEvent.KEYCODE_ENTER || event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)
-        ) {
-            if (launchFirstResultOrMatchingApp()) {
+    private fun isNodeInsideContainer(node: AccessibilityNodeInfo, containerId: String): Boolean {
+        var current: AccessibilityNodeInfo? = node
+        var depth = 0
+        while (current != null && depth < 8) {
+            if (current.viewIdResourceName == containerId) {
                 return true
             }
-        }
-        return super.onKeyEvent(event)
-    }
-
-    private fun launchFirstResultOrMatchingApp(): Boolean {
-        val root = try { rootInActiveWindow } catch (_: Exception) { null } ?: return false
-        try {
-            val pkg = root.packageName?.toString()
-            if (pkg != PIXEL_LAUNCHER_PKG) return false
-
-            // 1. Try clicking the first accessibility-focused or first child item in search results
-            val resultContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_RESULTS)
-                .ifEmpty { root.findAccessibilityNodeInfosByViewId(ID_APPS_LIST) }
-
-            for (container in resultContainers) {
-                if (container.childCount > 0) {
-                    val firstChild = container.getChild(0)
-                    if (firstChild != null) {
-                        val clicked = firstChild.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        try { firstChild.recycle() } catch (_: Exception) {}
-                        if (clicked) return true
-                    }
-                }
-                try { container.recycle() } catch (_: Exception) {}
+            val parent = try { current.parent } catch (_: Exception) { null }
+            if (current != node) {
+                try { current.recycle() } catch (_: Exception) {}
             }
-
-            // 2. Direct match fallback: read query from ID_SEARCH_INPUT and launch best candidate
-            val inputs = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_INPUT)
-            val query = inputs.firstOrNull()?.text?.toString()?.trim()
-            inputs.forEach { try { it.recycle() } catch (_: Exception) {} }
-
-            if (!query.isNullOrEmpty()) {
-                return launchBestMatchingApp(query)
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to launch result on enter", e)
-        } finally {
-            try { root.recycle() } catch (_: Exception) {}
+            current = parent
+            depth++
         }
         return false
     }
 
-    private fun launchBestMatchingApp(query: String): Boolean {
-        return try {
-            val pm = packageManager
-            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
-            }
-            val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
-            val candidates = resolveInfos.map {
-                AppSearchCandidate(
-                    packageName = it.activityInfo.packageName,
-                    label = it.loadLabel(pm).toString()
-                )
-            }
-            val best = AppSearchMatcher.findBestMatch(candidates, query)
-            if (best != null) {
-                val launchIntent = pm.getLaunchIntentForPackage(best.packageName)?.apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                if (launchIntent != null) {
-                    startActivity(launchIntent)
-                    return true
-                }
-            }
-            false
-        } catch (e: Exception) {
-            Log.w(TAG, "Error matching app for query $query", e)
-            false
-        }
-    }
-
     private fun ensureClassicSearchEngine() {
-        val targetEngine = LauncherEnginePolicy.resolveTargetEngine(WidgetPrefs.isReplaceDockEnabled(this))
-            ?: return
-        val now = SystemClock.elapsedRealtime()
-        if (currentEngine == targetEngine && now - lastEngineCheckTime < 2000L) {
-            return
+        if (currentEngine == ServiceHelper.CLASSIC_SEARCH_PACKAGE) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastEngineCheckTime < 2000L) {
+                return
+            }
+            lastEngineCheckTime = now
         }
-        lastEngineCheckTime = now
-        applyEngine(targetEngine)
+        applyEngine(ServiceHelper.CLASSIC_SEARCH_PACKAGE)
     }
 
     private fun applyEngine(targetEngine: String) {
@@ -281,7 +227,7 @@ class LauncherStateService : AccessibilityService() {
                     )
                     if (wrote) {
                         currentEngine = targetEngine
-                        Log.i(TAG, "Enforced selected_search_engine -> $targetEngine")
+                        Log.i(TAG, "Switched selected_search_engine -> $targetEngine")
                     }
                 } else {
                     currentEngine = targetEngine
@@ -307,10 +253,6 @@ class LauncherStateService : AccessibilityService() {
         debouncedUpdateRunnable?.let {
             mainHandler.removeCallbacks(it)
             debouncedUpdateRunnable = null
-        }
-        highlightRunnable?.let {
-            mainHandler.removeCallbacks(it)
-            highlightRunnable = null
         }
         themeCustomizationObserver?.let {
             try { contentResolver.unregisterContentObserver(it) } catch (_: Exception) {}

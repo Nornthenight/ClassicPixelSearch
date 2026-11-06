@@ -3,28 +3,33 @@ package com.pixel.classicsearch
 /**
  * Policy governing the selected_search_engine setting in Pixel Launcher.
  *
- * In Android 17 (CP41) and modern Pixel Launcher architectures, the app drawer (All Apps)
- * and the home dock (Hotseat) search containers are isolated. Dynamic toggling of
- * selected_search_engine to Google on drawer opening causes OseWidgetView to rebuild and flash
- * the stock Google Search bar on drawer close/collapse.
+ * In Pixel Launcher, the drawer (All Apps) app-highlight and Enter-launch algorithms are
+ * strictly coupled to Google OneSearch (`GOOGLE_SEARCH_PACKAGE`).
  *
- * By strictly enforcing CLASSIC_SEARCH_PACKAGE without transient toggles, dock flicker is
- * completely eliminated while in-app search dispatch remains fully functional via SearchTapActivity.
+ * To simultaneously achieve:
+ * 1) Native OneSearch highlight & instant app launch on Enter in the app drawer, AND
+ * 2) Zero dock flicker when the drawer collapses,
+ *
+ * The engine is set to Google ONLY while the search input is actively focused.
+ * As soon as the input loses focus (at the start of the drawer swipe-down gesture),
+ * the policy immediately restores CLASSIC_SEARCH_PACKAGE. Because Settings.Secure is
+ * updated during the 300ms close animation, the dock is already showing ClassicPixelSearch
+ * by the time the drawer reveals the home screen.
  */
 object LauncherEnginePolicy {
 
-    /**
-     * Resolves the target search engine package name based on user preference.
-     * Always returns CLASSIC_SEARCH_PACKAGE when dock replacement is enabled,
-     * guaranteeing zero dock flicker when the app drawer opens or collapses.
-     */
-    fun resolveTargetEngine(isDockReplacementEnabled: Boolean): String? {
-        return if (isDockReplacementEnabled) ServiceHelper.CLASSIC_SEARCH_PACKAGE else null
+    fun resolveTargetEngine(
+        isDockReplacementEnabled: Boolean,
+        isDrawerInputFocused: Boolean
+    ): String? {
+        if (!isDockReplacementEnabled) return null
+        return if (isDrawerInputFocused) {
+            ServiceHelper.GOOGLE_SEARCH_PACKAGE
+        } else {
+            ServiceHelper.CLASSIC_SEARCH_PACKAGE
+        }
     }
 
-    /**
-     * Determines whether Settings.Secure needs to be updated.
-     */
     fun shouldUpdateEngine(currentEngineInSettings: String?, targetEngine: String?): Boolean {
         if (targetEngine == null) return false
         return currentEngineInSettings != targetEngine

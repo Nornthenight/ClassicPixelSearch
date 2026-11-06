@@ -9,27 +9,31 @@ import org.junit.Test
 class LauncherEnginePolicyTest {
 
     @Test
-    fun `resolveTargetEngine when dock replacement enabled strictly returns classic search package`() {
-        val target = LauncherEnginePolicy.resolveTargetEngine(isDockReplacementEnabled = true)
-        assertEquals(ServiceHelper.CLASSIC_SEARCH_PACKAGE, target)
-    }
-
-    @Test
     fun `resolveTargetEngine when dock replacement disabled returns null`() {
-        val target = LauncherEnginePolicy.resolveTargetEngine(isDockReplacementEnabled = false)
+        val target = LauncherEnginePolicy.resolveTargetEngine(
+            isDockReplacementEnabled = false,
+            isDrawerInputFocused = true
+        )
         assertNull(target)
     }
 
     @Test
-    fun `drawer drop and collapse preserves classic search engine without stock google fallback`() {
-        // Simulating sequence: drawer opened -> query searched -> drawer collapsing (falling) -> idle home screen
-        val targetAtOpen = LauncherEnginePolicy.resolveTargetEngine(isDockReplacementEnabled = true)
-        val targetAtDrop = LauncherEnginePolicy.resolveTargetEngine(isDockReplacementEnabled = true)
-        val targetAtHome = LauncherEnginePolicy.resolveTargetEngine(isDockReplacementEnabled = true)
+    fun `resolveTargetEngine activates google search when user is focused in drawer search`() {
+        val target = LauncherEnginePolicy.resolveTargetEngine(
+            isDockReplacementEnabled = true,
+            isDrawerInputFocused = true
+        )
+        assertEquals(ServiceHelper.GOOGLE_SEARCH_PACKAGE, target)
+    }
 
-        assertEquals(ServiceHelper.CLASSIC_SEARCH_PACKAGE, targetAtOpen)
-        assertEquals(ServiceHelper.CLASSIC_SEARCH_PACKAGE, targetAtDrop)
-        assertEquals(ServiceHelper.CLASSIC_SEARCH_PACKAGE, targetAtHome)
+    @Test
+    fun `resolveTargetEngine immediately restores classic search when drawer loses focus`() {
+        // When drawer swipe-down starts, focus is lost instantly, restoring ClassicSearch before animation completes
+        val target = LauncherEnginePolicy.resolveTargetEngine(
+            isDockReplacementEnabled = true,
+            isDrawerInputFocused = false
+        )
+        assertEquals(ServiceHelper.CLASSIC_SEARCH_PACKAGE, target)
     }
 
     @Test
@@ -42,18 +46,18 @@ class LauncherEnginePolicyTest {
     }
 
     @Test
-    fun `shouldUpdateEngine returns true when current setting is stock google or foreign package`() {
-        val shouldUpdateFromGoogle = LauncherEnginePolicy.shouldUpdateEngine(
+    fun `shouldUpdateEngine returns true when transition between engines is required`() {
+        val shouldUpdateToGoogle = LauncherEnginePolicy.shouldUpdateEngine(
+            currentEngineInSettings = ServiceHelper.CLASSIC_SEARCH_PACKAGE,
+            targetEngine = ServiceHelper.GOOGLE_SEARCH_PACKAGE
+        )
+        assertTrue(shouldUpdateToGoogle)
+
+        val shouldUpdateToClassic = LauncherEnginePolicy.shouldUpdateEngine(
             currentEngineInSettings = ServiceHelper.GOOGLE_SEARCH_PACKAGE,
             targetEngine = ServiceHelper.CLASSIC_SEARCH_PACKAGE
         )
-        assertTrue(shouldUpdateFromGoogle)
-
-        val shouldUpdateFromEmpty = LauncherEnginePolicy.shouldUpdateEngine(
-            currentEngineInSettings = "",
-            targetEngine = ServiceHelper.CLASSIC_SEARCH_PACKAGE
-        )
-        assertTrue(shouldUpdateFromEmpty)
+        assertTrue(shouldUpdateToClassic)
     }
 
     @Test
