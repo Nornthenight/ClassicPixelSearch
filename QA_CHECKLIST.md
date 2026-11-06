@@ -34,9 +34,10 @@
 |---|---|---|---|---|
 | **TAP-01** | Google "G" Logo | `TARGET_LOGO` | Открытие Google App (`SearchActivity`) | Стабильный запуск основного приложения Google |
 | **TAP-02** | Поисковая строка (капсула) | `TARGET_SEARCH` | Поиск Google или поиск установленного приложения | Если введён текст приложения — мгновенный запуск `Intent.ACTION_MAIN` |
-| **TAP-03** | Микрофон | `TARGET_MIC` | Голосовой поиск Google (`ACTION_VOICE_SEARCH`) | Переназначение на любое приложение или браузер |
-| **TAP-04** | Центральная кнопка | `TARGET_MIDDLE` | Gemini (`ACTION_GEMINI`) | Lens, AI Mode, ChatGPT, Perplexity, QR, Браузеры, Любое приложение |
-| **TAP-05** | Правая кнопка | `TARGET_AI` | AI Mode (`ACTION_AI_MODE`, `udm=50`) | ChatGPT, Perplexity, QR, Браузеры, Любое приложение |
+| **TAP-03** | Микрофон | `TARGET_MIC` | Голосовой поиск Google (`ACTION_VOICE_SEARCH`) | Переназначение на любое приложение или браузер + динамическая смена значка |
+| **TAP-04** | Центральная кнопка | `TARGET_MIDDLE` | Gemini (`ACTION_GEMINI`) | Lens, AI Mode, ChatGPT, Perplexity, QR, Браузеры, Любое приложение + динамическая смена значка |
+| **TAP-05** | Правая кнопка | `TARGET_AI` | AI Mode (`ACTION_AI_MODE`, `udm=50`) | ChatGPT, Perplexity, QR, Браузеры, Любое приложение + динамическая смена значка |
+| **TAP-06** | Динамические иконки кнопок | `resolveActionIcon` | Авто-синхронизация значков кнопок с выбранным действием | Отрисовка нативного значка установленного приложения из `PackageManager` или векторного пресета (QR, ChatGPT, Perplexity, Браузер) |
 
 ### Категория C: Визуальный движок и Material You (Monet)
 | ID | Функция | Допустимые значения / Диапазон | Проверка |

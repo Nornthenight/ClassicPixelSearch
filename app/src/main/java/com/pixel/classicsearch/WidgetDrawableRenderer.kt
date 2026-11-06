@@ -177,4 +177,120 @@ object WidgetDrawableRenderer {
         }
         return d
     }
+
+    sealed class ActionIcon {
+        data class Resource(val resId: Int) : ActionIcon()
+        data class AppBitmap(val bitmap: Bitmap) : ActionIcon()
+    }
+
+    fun resolveActionIcon(
+        context: Context,
+        action: String,
+        iconStyle: Int,
+        defaultAction: String,
+        targetSizePx: Int = 96
+    ): ActionIcon {
+        val resolvedAction = if (action == WidgetPrefs.ACTION_DEFAULT) defaultAction else action
+
+        return when {
+            resolvedAction == WidgetPrefs.ACTION_VOICE_SEARCH -> {
+                val res = when (iconStyle) {
+                    WidgetPrefs.ICON_ADAPTIVE_EMERALD -> R.drawable.ic_mic_ref
+                    WidgetPrefs.ICON_DYNAMIC_MONET -> R.drawable.ic_mic_mono
+                    WidgetPrefs.ICON_CLASSIC_COLOR -> R.drawable.ic_mic_color
+                    else -> R.drawable.ic_mic_ref
+                }
+                ActionIcon.Resource(res)
+            }
+            resolvedAction == WidgetPrefs.ACTION_GEMINI -> {
+                val res = when (iconStyle) {
+                    WidgetPrefs.ICON_ADAPTIVE_EMERALD -> R.drawable.ic_gemini_ref
+                    WidgetPrefs.ICON_DYNAMIC_MONET -> R.drawable.ic_gemini_mono
+                    WidgetPrefs.ICON_CLASSIC_COLOR -> R.drawable.ic_gemini_color
+                    else -> R.drawable.ic_gemini_ref
+                }
+                ActionIcon.Resource(res)
+            }
+            resolvedAction == WidgetPrefs.ACTION_GOOGLE_LENS -> {
+                val res = if (iconStyle == WidgetPrefs.ICON_DYNAMIC_MONET) {
+                    R.drawable.ic_lens_mono
+                } else {
+                    R.drawable.ic_lens_color
+                }
+                ActionIcon.Resource(res)
+            }
+            resolvedAction == WidgetPrefs.ACTION_AI_MODE -> {
+                val res = when (iconStyle) {
+                    WidgetPrefs.ICON_ADAPTIVE_EMERALD -> R.drawable.ic_ai_mode_ref
+                    WidgetPrefs.ICON_DYNAMIC_MONET -> R.drawable.ic_ai_mode_mono
+                    WidgetPrefs.ICON_CLASSIC_COLOR -> R.drawable.ic_ai_mode_color
+                    else -> R.drawable.ic_ai_mode_ref
+                }
+                ActionIcon.Resource(res)
+            }
+            resolvedAction == WidgetPrefs.ACTION_QR_SCANNER -> {
+                ActionIcon.Resource(R.drawable.ic_qr_code)
+            }
+            resolvedAction == WidgetPrefs.ACTION_CHATGPT -> {
+                val bmp = getAppIconBitmap(context, "com.openai.chatgpt", targetSizePx)
+                if (bmp != null) ActionIcon.AppBitmap(bmp) else ActionIcon.Resource(R.drawable.ic_chatgpt)
+            }
+            resolvedAction == WidgetPrefs.ACTION_PERPLEXITY -> {
+                val bmp = getAppIconBitmap(context, "ai.perplexity.app.android", targetSizePx)
+                if (bmp != null) ActionIcon.AppBitmap(bmp) else ActionIcon.Resource(R.drawable.ic_perplexity)
+            }
+            resolvedAction == WidgetPrefs.ACTION_BROWSER_BRAVE -> {
+                val bmp = getAppIconBitmap(context, "com.brave.browser", targetSizePx)
+                if (bmp != null) ActionIcon.AppBitmap(bmp) else ActionIcon.Resource(R.drawable.ic_browser)
+            }
+            resolvedAction == WidgetPrefs.ACTION_BROWSER_FIREFOX -> {
+                val bmp = getAppIconBitmap(context, "org.mozilla.firefox", targetSizePx)
+                if (bmp != null) ActionIcon.AppBitmap(bmp) else ActionIcon.Resource(R.drawable.ic_browser)
+            }
+            resolvedAction == WidgetPrefs.ACTION_BROWSER_CROMITE -> {
+                val bmp = getAppIconBitmap(context, "org.cromite.cromite", targetSizePx)
+                if (bmp != null) ActionIcon.AppBitmap(bmp) else ActionIcon.Resource(R.drawable.ic_browser)
+            }
+            resolvedAction.startsWith(WidgetPrefs.PREFIX_APP) -> {
+                val pkg = resolvedAction.removePrefix(WidgetPrefs.PREFIX_APP)
+                val bmp = getAppIconBitmap(context, pkg, targetSizePx)
+                if (bmp != null) ActionIcon.AppBitmap(bmp) else ActionIcon.Resource(R.drawable.ic_browser)
+            }
+            else -> {
+                if (resolvedAction != defaultAction) {
+                    resolveActionIcon(context, defaultAction, iconStyle, defaultAction, targetSizePx)
+                } else {
+                    ActionIcon.Resource(R.drawable.ic_mic_ref)
+                }
+            }
+        }
+    }
+
+    fun getAppIconBitmap(context: Context, packageName: String, sizePx: Int): Bitmap? {
+        return try {
+            val pm = context.packageManager
+            val drawable = pm.getApplicationIcon(packageName)
+            val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, sizePx, sizePx)
+            drawable.draw(canvas)
+            bitmap
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun applyActionIcon(views: android.widget.RemoteViews, viewId: Int, icon: ActionIcon) {
+        when (icon) {
+            is ActionIcon.Resource -> views.setImageViewResource(viewId, icon.resId)
+            is ActionIcon.AppBitmap -> views.setImageViewBitmap(viewId, icon.bitmap)
+        }
+    }
+
+    fun applyActionIconToView(imageView: android.widget.ImageView, icon: ActionIcon) {
+        when (icon) {
+            is ActionIcon.Resource -> imageView.setImageResource(icon.resId)
+            is ActionIcon.AppBitmap -> imageView.setImageBitmap(icon.bitmap)
+        }
+    }
 }

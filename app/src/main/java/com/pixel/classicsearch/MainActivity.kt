@@ -218,27 +218,29 @@ class MainActivity : AppCompatActivity() {
             previewRingSpacer.layoutParams = previewRingSpacer.layoutParams.apply { width = gapPx }
             previewAiWrapper.layoutParams = previewAiWrapper.layoutParams.apply { width = innerHeightPx }
 
-            val isLensMiddle = selectedMiddleAction == WidgetPrefs.ACTION_GOOGLE_LENS
-            when (getSelectedIconStyle()) {
-                WidgetPrefs.ICON_ADAPTIVE_EMERALD -> {
-                    previewLogo.setImageResource(R.drawable.ic_google_logo_ref)
-                    previewMic.setImageResource(R.drawable.ic_mic_ref)
-                    previewGemini.setImageResource(if (isLensMiddle) R.drawable.ic_lens_color else R.drawable.ic_gemini_ref)
-                    previewAi.setImageResource(R.drawable.ic_ai_mode_ref)
-                }
-                WidgetPrefs.ICON_DYNAMIC_MONET -> {
-                    previewLogo.setImageResource(R.drawable.ic_google_logo_mono)
-                    previewMic.setImageResource(R.drawable.ic_mic_mono)
-                    previewGemini.setImageResource(if (isLensMiddle) R.drawable.ic_lens_mono else R.drawable.ic_gemini_mono)
-                    previewAi.setImageResource(R.drawable.ic_ai_mode_mono)
-                }
-                WidgetPrefs.ICON_CLASSIC_COLOR -> {
-                    previewLogo.setImageResource(R.drawable.ic_google_logo_color)
-                    previewMic.setImageResource(R.drawable.ic_mic_color)
-                    previewGemini.setImageResource(if (isLensMiddle) R.drawable.ic_lens_color else R.drawable.ic_gemini_color)
-                    previewAi.setImageResource(R.drawable.ic_ai_mode_color)
-                }
+            val iconStyle = getSelectedIconStyle()
+            val logoRes = when (iconStyle) {
+                WidgetPrefs.ICON_ADAPTIVE_EMERALD -> R.drawable.ic_google_logo_ref
+                WidgetPrefs.ICON_DYNAMIC_MONET -> R.drawable.ic_google_logo_mono
+                WidgetPrefs.ICON_CLASSIC_COLOR -> R.drawable.ic_google_logo_color
+                else -> R.drawable.ic_google_logo_ref
             }
+            previewLogo.setImageResource(logoRes)
+
+            val micIcon = WidgetDrawableRenderer.resolveActionIcon(
+                this, selectedMicAction, iconStyle, WidgetPrefs.ACTION_VOICE_SEARCH
+            )
+            WidgetDrawableRenderer.applyActionIconToView(previewMic, micIcon)
+
+            val middleIcon = WidgetDrawableRenderer.resolveActionIcon(
+                this, selectedMiddleAction, iconStyle, WidgetPrefs.ACTION_GEMINI
+            )
+            WidgetDrawableRenderer.applyActionIconToView(previewGemini, middleIcon)
+
+            val aiIcon = WidgetDrawableRenderer.resolveActionIcon(
+                this, selectedAiAction, iconStyle, WidgetPrefs.ACTION_AI_MODE
+            )
+            WidgetDrawableRenderer.applyActionIconToView(previewAi, aiIcon)
         }
 
         fun refreshOpacityPreview(
@@ -307,6 +309,7 @@ class MainActivity : AppCompatActivity() {
             showActionPickerDialog(selectedMicAction) { chosen ->
                 selectedMicAction = chosen
                 refreshActionLabels()
+                refreshStylePreview()
             }
         }
         rowMiddleAction.setOnClickListener { v ->
@@ -322,6 +325,7 @@ class MainActivity : AppCompatActivity() {
             showActionPickerDialog(selectedAiAction) { chosen ->
                 selectedAiAction = chosen
                 refreshActionLabels()
+                refreshStylePreview()
             }
         }
 

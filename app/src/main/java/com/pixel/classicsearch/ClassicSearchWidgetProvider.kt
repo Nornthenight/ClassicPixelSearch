@@ -134,43 +134,34 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
             views.setFloat(R.id.bg_outer_layer, "setAlpha", totalOuterAlpha)
             views.setFloat(R.id.search_outer_container, "setAlpha", opacityPercent / 100f)
 
-            // 4. Apply icon styles and middle button dynamic swap (Lens vs Gemini)
+            // 4. Apply icon styles and dynamic action icons for all 3 remappable buttons
+            val iconStyle = WidgetPrefs.getIconStyle(context)
+            val micAction = WidgetPrefs.getMicAction(context)
             val middleAction = WidgetPrefs.getMiddleAction(context)
-            when (WidgetPrefs.getIconStyle(context)) {
-                WidgetPrefs.ICON_ADAPTIVE_EMERALD -> {
-                    views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_ref)
-                    views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_ref)
-                    views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_ref)
-                    val middleIconRes = if (middleAction == WidgetPrefs.ACTION_GOOGLE_LENS) {
-                        R.drawable.ic_lens_color
-                    } else {
-                        R.drawable.ic_gemini_ref
-                    }
-                    views.setImageViewResource(R.id.btn_lens_search, middleIconRes)
-                }
-                WidgetPrefs.ICON_DYNAMIC_MONET -> {
-                    views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_mono)
-                    views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_mono)
-                    views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_mono)
-                    val middleIconRes = if (middleAction == WidgetPrefs.ACTION_GOOGLE_LENS) {
-                        R.drawable.ic_lens_mono
-                    } else {
-                        R.drawable.ic_gemini_mono
-                    }
-                    views.setImageViewResource(R.id.btn_lens_search, middleIconRes)
-                }
-                WidgetPrefs.ICON_CLASSIC_COLOR -> {
-                    views.setImageViewResource(R.id.img_google_logo, R.drawable.ic_google_logo_color)
-                    views.setImageViewResource(R.id.btn_voice_search, R.drawable.ic_mic_color)
-                    views.setImageViewResource(R.id.btn_ai_mode, R.drawable.ic_ai_mode_color)
-                    val middleIconRes = if (middleAction == WidgetPrefs.ACTION_GOOGLE_LENS) {
-                        R.drawable.ic_lens_color
-                    } else {
-                        R.drawable.ic_gemini_color
-                    }
-                    views.setImageViewResource(R.id.btn_lens_search, middleIconRes)
-                }
+            val aiAction = WidgetPrefs.getAiAction(context)
+
+            val logoRes = when (iconStyle) {
+                WidgetPrefs.ICON_ADAPTIVE_EMERALD -> R.drawable.ic_google_logo_ref
+                WidgetPrefs.ICON_DYNAMIC_MONET -> R.drawable.ic_google_logo_mono
+                WidgetPrefs.ICON_CLASSIC_COLOR -> R.drawable.ic_google_logo_color
+                else -> R.drawable.ic_google_logo_ref
             }
+            views.setImageViewResource(R.id.img_google_logo, logoRes)
+
+            val micIcon = WidgetDrawableRenderer.resolveActionIcon(
+                context, micAction, iconStyle, WidgetPrefs.ACTION_VOICE_SEARCH
+            )
+            WidgetDrawableRenderer.applyActionIcon(views, R.id.btn_voice_search, micIcon)
+
+            val middleIcon = WidgetDrawableRenderer.resolveActionIcon(
+                context, middleAction, iconStyle, WidgetPrefs.ACTION_GEMINI
+            )
+            WidgetDrawableRenderer.applyActionIcon(views, R.id.btn_lens_search, middleIcon)
+
+            val aiIcon = WidgetDrawableRenderer.resolveActionIcon(
+                context, aiAction, iconStyle, WidgetPrefs.ACTION_AI_MODE
+            )
+            WidgetDrawableRenderer.applyActionIcon(views, R.id.btn_ai_mode, aiIcon)
 
             // 5. Route all 5 widget click targets through SearchTapActivity with distinct request codes
             views.setOnClickPendingIntent(
