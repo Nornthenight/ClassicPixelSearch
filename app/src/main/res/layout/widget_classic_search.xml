@@ -92,6 +92,7 @@
                     android:layout_width="30dp"
                     android:layout_height="30dp"
                     android:contentDescription="@string/cd_google_search"
+                    android:scaleType="centerInside"
                     android:padding="3dp"
                     android:src="@drawable/ic_google_logo_ref" />
 
@@ -115,7 +116,8 @@
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:contentDescription="@string/cd_voice_search"
-                    android:padding="10dp"
+                    android:scaleType="centerInside"
+                    android:padding="8dp"
                     android:src="@drawable/ic_mic_ref" />
 
                 <!-- Middle Button (Gemini / Lens -> remappable action) -->
@@ -125,7 +127,8 @@
                     android:layout_height="40dp"
                     android:layout_marginStart="4dp"
                     android:contentDescription="@string/cd_gemini_app"
-                    android:padding="10dp"
+                    android:scaleType="centerInside"
+                    android:padding="8dp"
                     android:src="@drawable/ic_gemini_ref" />
 
             </LinearLayout>
@@ -151,13 +154,13 @@
                 android:layout_height="match_parent"
                 android:scaleType="fitXY" />
 
-            <!-- AI button icon (remappable action) -->
+            <!-- AI button icon (remappable action, perfectly aligned to 24dp G logo) -->
             <ImageView
                 android:id="@+id/btn_ai_mode"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:contentDescription="@string/cd_ai_mode"
-                android:padding="10dp"
+                android:scaleType="centerInside"
                 android:src="@drawable/ic_ai_mode_ref" />
         </FrameLayout>
 

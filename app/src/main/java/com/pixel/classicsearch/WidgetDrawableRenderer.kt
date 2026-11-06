@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import androidx.core.content.ContextCompat
+import kotlin.math.roundToInt
 
 object WidgetDrawableRenderer {
 
@@ -188,7 +189,7 @@ object WidgetDrawableRenderer {
         action: String,
         iconStyle: Int,
         defaultAction: String,
-        targetSizePx: Int = 96
+        targetSizePx: Int = (24f * context.resources.displayMetrics.density).roundToInt().coerceAtLeast(48)
     ): ActionIcon {
         val resolvedAction = if (action == WidgetPrefs.ACTION_DEFAULT) defaultAction else action
 
@@ -270,7 +271,9 @@ object WidgetDrawableRenderer {
         return try {
             val pm = context.packageManager
             val drawable = pm.getApplicationIcon(packageName)
+            val densityDpi = context.resources.displayMetrics.densityDpi
             val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+            bitmap.density = densityDpi
             val canvas = Canvas(bitmap)
             drawable.setBounds(0, 0, sizePx, sizePx)
             drawable.draw(canvas)
