@@ -7,48 +7,60 @@
     android:background="@color/settings_bg"
     android:fitsSystemWindows="true">
 
-    <!-- Sticky Live Preview Header -->
+    <!-- Top Sticky Header: Title & Live Preview -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingHorizontal="20dp"
         android:paddingTop="12dp"
-        android:paddingBottom="12dp">
+        android:paddingBottom="10dp">
 
-        <!-- App Title & Subtitle -->
+        <!-- App Title & Beta Pill -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_title"
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_beta_badge"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:text="@string/badge_beta"
+                android:textColor="?attr/colorOnSecondaryContainer"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Live Preview Label -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/settings_title"
-            android:textAppearance="?attr/textAppearanceHeadlineMedium"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:alpha="0.7"
-            android:text="@string/settings_subtitle"
-            android:textAppearance="?attr/textAppearanceBodyMedium" />
-
-        <!-- Live Preview Section -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="6dp"
             android:alpha="0.75"
-            android:letterSpacing="0.08"
+            android:letterSpacing="0.06"
             android:text="@string/preview_label"
             android:textAppearance="?attr/textAppearanceLabelMedium"
             android:textStyle="bold" />
 
+        <!-- Live Preview Card (Fully Contained, Match Parent Width) -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardBackgroundColor="@android:color/system_neutral1_800"
-            app:cardCornerRadius="28dp"
+            app:cardCornerRadius="26dp"
             app:cardElevation="0dp"
             app:strokeWidth="0dp">
 
@@ -56,16 +68,18 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_preview_split"
-                android:padding="14dp">
+                android:padding="12dp">
 
                 <FrameLayout
-                    android:layout_width="380dp"
-                    android:layout_height="wrap_content"
+                    android:layout_width="match_parent"
+                    android:layout_height="62dp"
                     android:layout_gravity="center">
 
                     <include
                         android:id="@+id/preview_widget"
-                        layout="@layout/widget_classic_search" />
+                        layout="@layout/widget_classic_search"
+                        android:layout_width="match_parent"
+                        android:layout_height="62dp" />
 
                 </FrameLayout>
 
@@ -75,6 +89,7 @@
 
     </LinearLayout>
 
+    <!-- Scrollable Content -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -87,707 +102,697 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingHorizontal="20dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="24dp">
+            android:paddingTop="6dp"
+            android:paddingBottom="20dp">
 
-        <!-- Section: System & Shizuku Status -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="8dp"
-            android:alpha="0.75"
-            android:letterSpacing="0.08"
-            android:text="@string/section_system_status"
-            android:textAppearance="?attr/textAppearanceLabelMedium"
-            android:textStyle="bold" />
+            <!-- ============================================== -->
+            <!-- SECTION 1: CUSTOMIZATIONS (КАСТОМИЗАЦИЯ)       -->
+            <!-- ============================================== -->
 
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_shizuku_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
+            <!-- Section 1.1: Surface Style -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="6dp"
+                android:alpha="0.75"
+                android:letterSpacing="0.06"
+                android:text="@string/section_frame_color"
+                android:textAppearance="?attr/textAppearanceLabelMedium"
+                android:textStyle="bold" />
 
-            <LinearLayout
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <!-- Row 1: Shizuku Service -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/label_shizuku_status"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/txt_shizuku_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Checking..."
-                        android:textAppearance="?attr/textAppearanceLabelLarge"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginVertical="10dp"
-                    android:background="?attr/colorOutlineVariant" />
-
-                <!-- Row 2: WRITE_SECURE_SETTINGS -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/label_write_secure_status"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/txt_write_secure_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Not Granted"
-                        android:textAppearance="?attr/textAppearanceLabelLarge"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginVertical="10dp"
-                    android:background="?attr/colorOutlineVariant" />
-
-                <!-- Row 3: All Apps Search Service (Accessibility) -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/label_a11y_status"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/txt_a11y_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Inactive"
-                        android:textAppearance="?attr/textAppearanceLabelLarge"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Action Button: Request Shizuku Permission -->
-                <Button
-                    android:id="@+id/btn_request_shizuku"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="14dp"
-                    android:text="@string/btn_request_shizuku" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Section 1: Dock Integration -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="8dp"
-            android:alpha="0.75"
-            android:letterSpacing="0.08"
-            android:text="@string/section_dock_integration"
-            android:textAppearance="?attr/textAppearanceLabelMedium"
-            android:textStyle="bold" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switch_replace_dock"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:checked="true"
-                    android:text="@string/option_replace_dock"
-                    android:textAppearance="?attr/textAppearanceTitleMedium" />
-
-                <TextView
-                    android:id="@+id/txt_dock_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:alpha="0.75"
-                    android:text="@string/option_replace_dock_desc"
-                    android:textAppearance="?attr/textAppearanceBodySmall" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Section 2: Outer Frame & Surface Contrast -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="8dp"
-            android:alpha="0.75"
-            android:letterSpacing="0.08"
-            android:text="@string/section_frame_color"
-            android:textAppearance="?attr/textAppearanceLabelMedium"
-            android:textStyle="bold" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <RadioGroup
-                android:id="@+id/rg_frame_style"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="8dp">
-
-                <RadioButton
-                    android:id="@+id/rb_frame_deep"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:paddingStart="8dp"
-                    android:text="@string/frame_style_deep"
-                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                <RadioButton
-                    android:id="@+id/rb_frame_pastel"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:paddingStart="8dp"
-                    android:text="@string/frame_style_pastel"
-                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                <RadioButton
-                    android:id="@+id/rb_frame_rich"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:paddingStart="8dp"
-                    android:text="@string/frame_style_rich"
-                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                <RadioButton
-                    android:id="@+id/rb_frame_amoled"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:paddingStart="8dp"
-                    android:text="@string/frame_style_amoled"
-                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-            </RadioGroup>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Section 3: Icon Color Fragmentation -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="8dp"
-            android:alpha="0.75"
-            android:letterSpacing="0.08"
-            android:text="@string/section_icon_color"
-            android:textAppearance="?attr/textAppearanceLabelMedium"
-            android:textStyle="bold" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <RadioGroup
-                android:id="@+id/rg_icon_style"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="8dp">
-
-                <RadioButton
-                    android:id="@+id/rb_icon_ref"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:paddingStart="8dp"
-                    android:text="@string/icon_style_ref"
-                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                <RadioButton
-                    android:id="@+id/rb_icon_mono"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:paddingStart="8dp"
-                    android:text="@string/icon_style_mono"
-                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                <RadioButton
-                    android:id="@+id/rb_icon_color"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:paddingStart="8dp"
-                    android:text="@string/icon_style_color"
-                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-            </RadioGroup>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Section: Right-Zone Button Actions -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="8dp"
-            android:alpha="0.75"
-            android:letterSpacing="0.08"
-            android:text="@string/section_button_actions"
-            android:textAppearance="?attr/textAppearanceLabelMedium"
-            android:textStyle="bold" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <!-- Row 1: Microphone Action -->
-                <LinearLayout
-                    android:id="@+id/row_mic_action"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:orientation="vertical"
-                    android:paddingVertical="8dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/label_mic_action"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/txt_mic_action_desc"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:alpha="0.75"
-                        android:text="@string/action_voice_search"
-                        android:textAppearance="?attr/textAppearanceBodyMedium" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginVertical="6dp"
-                    android:background="?attr/colorOutlineVariant" />
-
-                <!-- Row 2: Middle Button (Gemini / Lens) Action -->
-                <LinearLayout
-                    android:id="@+id/row_middle_action"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:orientation="vertical"
-                    android:paddingVertical="8dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/label_middle_action"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/txt_middle_action_desc"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:alpha="0.75"
-                        android:text="@string/action_gemini"
-                        android:textAppearance="?attr/textAppearanceBodyMedium" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginVertical="6dp"
-                    android:background="?attr/colorOutlineVariant" />
-
-                <!-- Row 3: Right Button (AI Circle) Action -->
-                <LinearLayout
-                    android:id="@+id/row_ai_action"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:orientation="vertical"
-                    android:paddingVertical="8dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/label_ai_action"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/txt_ai_action_desc"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:alpha="0.75"
-                        android:text="@string/action_ai_mode"
-                        android:textAppearance="?attr/textAppearanceBodyMedium" />
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Section: Geometry & Framing -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="8dp"
-            android:alpha="0.75"
-            android:letterSpacing="0.08"
-            android:text="@string/section_geometry"
-            android:textAppearance="?attr/textAppearanceLabelMedium"
-            android:textStyle="bold" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <!-- Widget Opacity -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/label_opacity"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/option_opacity"
-                        android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                    <TextView
-                        android:id="@+id/txt_opacity_value"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="100%"
-                        android:textAppearance="?attr/textAppearanceLabelLarge"
-                        android:textStyle="bold" />
-
-                </LinearLayout>
-
-                <SeekBar
-                    android:id="@+id/seek_opacity"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:max="100"
-                    android:min="30"
-                    android:progress="100" />
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginVertical="10dp"
-                    android:background="?attr/colorOutlineVariant" />
-
-                <!-- Outer Ring Alpha -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/label_outer_alpha"
-                        android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                    <TextView
-                        android:id="@+id/txt_outer_alpha_value"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="85%"
-                        android:textAppearance="?attr/textAppearanceLabelLarge"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <SeekBar
-                    android:id="@+id/seek_outer_alpha"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:max="100"
-                    android:min="0"
-                    android:progress="85" />
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginVertical="10dp"
-                    android:background="?attr/colorOutlineVariant" />
-
-                <!-- Concentric Ring Gap -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/label_ring_gap"
-                        android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                    <TextView
-                        android:id="@+id/txt_ring_gap_value"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="6 dp"
-                        android:textAppearance="?attr/textAppearanceLabelLarge"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <SeekBar
-                    android:id="@+id/seek_ring_gap"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:max="12"
-                    android:min="2"
-                    android:progress="6" />
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginVertical="10dp"
-                    android:background="?attr/colorOutlineVariant" />
-
-                <!-- Corner Radius -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/label_corner_radius"
-                        android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                    <TextView
-                        android:id="@+id/txt_corner_radius_value"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="31 dp"
-                        android:textAppearance="?attr/textAppearanceLabelLarge"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <SeekBar
-                    android:id="@+id/seek_corner_radius"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:max="31"
-                    android:min="12"
-                    android:progress="31" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Section: Pixel Haptic Feedback -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="8dp"
-            android:alpha="0.75"
-            android:letterSpacing="0.08"
-            android:text="@string/section_haptics"
-            android:textAppearance="?attr/textAppearanceLabelMedium"
-            android:textStyle="bold" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switch_haptic"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:checked="true"
-                    android:text="@string/option_haptic_enabled"
-                    android:textAppearance="?attr/textAppearanceTitleMedium" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:alpha="0.75"
-                    android:text="@string/option_haptic_desc"
-                    android:textAppearance="?attr/textAppearanceBodySmall" />
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginVertical="10dp"
-                    android:background="?attr/colorOutlineVariant" />
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:strokeWidth="1dp">
 
                 <RadioGroup
-                    android:id="@+id/rg_haptic_style"
+                    android:id="@+id/rg_frame_style"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp">
 
                     <RadioButton
-                        android:id="@+id/rb_haptic_tick"
+                        android:id="@+id/rb_frame_deep"
                         android:layout_width="match_parent"
-                        android:layout_height="44dp"
+                        android:layout_height="wrap_content"
+                        android:minHeight="44dp"
                         android:paddingStart="8dp"
-                        android:text="@string/haptic_style_tick"
-                        android:textAppearance="?attr/textAppearanceBodyLarge" />
+                        android:text="@string/frame_style_deep"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                     <RadioButton
-                        android:id="@+id/rb_haptic_click"
+                        android:id="@+id/rb_frame_pastel"
                         android:layout_width="match_parent"
-                        android:layout_height="44dp"
+                        android:layout_height="wrap_content"
+                        android:minHeight="44dp"
                         android:paddingStart="8dp"
-                        android:text="@string/haptic_style_click"
-                        android:textAppearance="?attr/textAppearanceBodyLarge" />
+                        android:text="@string/frame_style_pastel"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    <RadioButton
+                        android:id="@+id/rb_frame_rich"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="44dp"
+                        android:paddingStart="8dp"
+                        android:text="@string/frame_style_rich"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    <RadioButton
+                        android:id="@+id/rb_frame_amoled"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="44dp"
+                        android:paddingStart="8dp"
+                        android:text="@string/frame_style_amoled"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 </RadioGroup>
 
-            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-        </com.google.android.material.card.MaterialCardView>
+            <!-- Section 1.2: Icons -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="6dp"
+                android:alpha="0.75"
+                android:letterSpacing="0.06"
+                android:text="@string/section_icon_color"
+                android:textAppearance="?attr/textAppearanceLabelMedium"
+                android:textStyle="bold" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:strokeWidth="1dp">
+
+                <RadioGroup
+                    android:id="@+id/rg_icon_style"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp">
+
+                    <RadioButton
+                        android:id="@+id/rb_icon_ref"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="44dp"
+                        android:paddingStart="8dp"
+                        android:text="@string/icon_style_ref"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    <RadioButton
+                        android:id="@+id/rb_icon_mono"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="44dp"
+                        android:paddingStart="8dp"
+                        android:text="@string/icon_style_mono"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    <RadioButton
+                        android:id="@+id/rb_icon_color"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="44dp"
+                        android:paddingStart="8dp"
+                        android:text="@string/icon_style_color"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                </RadioGroup>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Section 1.3: Button Actions -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="6dp"
+                android:alpha="0.75"
+                android:letterSpacing="0.06"
+                android:text="@string/section_button_actions"
+                android:textAppearance="?attr/textAppearanceLabelMedium"
+                android:textStyle="bold" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <!-- Row 1: Microphone Action -->
+                    <LinearLayout
+                        android:id="@+id/row_mic_action"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingVertical="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_mic_action"
+                            android:textAppearance="?attr/textAppearanceBodyMedium"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txt_mic_action_desc"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:alpha="0.7"
+                            android:text="@string/action_voice_search"
+                            android:textAppearance="?attr/textAppearanceBodySmall" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="4dp"
+                        android:background="?attr/colorOutlineVariant" />
+
+                    <!-- Row 2: Middle Button Action -->
+                    <LinearLayout
+                        android:id="@+id/row_middle_action"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingVertical="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_middle_action"
+                            android:textAppearance="?attr/textAppearanceBodyMedium"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txt_middle_action_desc"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:alpha="0.7"
+                            android:text="@string/action_gemini"
+                            android:textAppearance="?attr/textAppearanceBodySmall" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="4dp"
+                        android:background="?attr/colorOutlineVariant" />
+
+                    <!-- Row 3: Right Button Action -->
+                    <LinearLayout
+                        android:id="@+id/row_ai_action"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingVertical="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_ai_action"
+                            android:textAppearance="?attr/textAppearanceBodyMedium"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txt_ai_action_desc"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:alpha="0.7"
+                            android:text="@string/action_ai_mode"
+                            android:textAppearance="?attr/textAppearanceBodySmall" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Section 1.4: Geometry & Alpha -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="6dp"
+                android:alpha="0.75"
+                android:letterSpacing="0.06"
+                android:text="@string/section_geometry"
+                android:textAppearance="?attr/textAppearanceLabelMedium"
+                android:textStyle="bold" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Widget Opacity -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/label_opacity"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/option_opacity"
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                        <TextView
+                            android:id="@+id/txt_opacity_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="100%"
+                            android:textAppearance="?attr/textAppearanceLabelLarge"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <SeekBar
+                        android:id="@+id/seek_opacity"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:max="100"
+                        android:min="30"
+                        android:progress="100" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="8dp"
+                        android:background="?attr/colorOutlineVariant" />
+
+                    <!-- Outer Ring Alpha -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_outer_alpha"
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                        <TextView
+                            android:id="@+id/txt_outer_alpha_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="85%"
+                            android:textAppearance="?attr/textAppearanceLabelLarge"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <SeekBar
+                        android:id="@+id/seek_outer_alpha"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:max="100"
+                        android:min="0"
+                        android:progress="85" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="8dp"
+                        android:background="?attr/colorOutlineVariant" />
+
+                    <!-- Concentric Ring Gap -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_ring_gap"
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                        <TextView
+                            android:id="@+id/txt_ring_gap_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="6 dp"
+                            android:textAppearance="?attr/textAppearanceLabelLarge"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <SeekBar
+                        android:id="@+id/seek_ring_gap"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:max="12"
+                        android:min="2"
+                        android:progress="6" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="8dp"
+                        android:background="?attr/colorOutlineVariant" />
+
+                    <!-- Corner Radius -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_corner_radius"
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                        <TextView
+                            android:id="@+id/txt_corner_radius_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="31 dp"
+                            android:textAppearance="?attr/textAppearanceLabelLarge"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <SeekBar
+                        android:id="@+id/seek_corner_radius"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:max="31"
+                        android:min="12"
+                        android:progress="31" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ========================================================== -->
+            <!-- SECTION 2: SYSTEM & EXTRAS (В САМОМ НИЗУ, КАК ЗАПРОШЕНО)    -->
+            <!-- ========================================================== -->
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="6dp"
+                android:alpha="0.75"
+                android:letterSpacing="0.06"
+                android:text="@string/section_system_advanced"
+                android:textAppearance="?attr/textAppearanceLabelMedium"
+                android:textStyle="bold" />
+
+            <!-- Card: Haptics (Вибрация) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switch_haptic"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="@string/option_haptic_enabled"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textStyle="bold" />
+
+                    <RadioGroup
+                        android:id="@+id/rg_haptic_style"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/rb_haptic_tick"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:minHeight="44dp"
+                            android:text="@string/haptic_style_tick"
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                        <RadioButton
+                            android:id="@+id/rb_haptic_click"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:minHeight="44dp"
+                            android:text="@string/haptic_style_click"
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    </RadioGroup>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Card: Pixel Launcher Dock Replacement -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switch_replace_dock"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="@string/option_replace_dock"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txt_dock_status"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:alpha="0.7"
+                        android:text="@string/option_replace_dock_desc"
+                        android:textAppearance="?attr/textAppearanceBodySmall" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Card: Shizuku & System Permissions -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_shizuku_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Row 1: Shizuku Service -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_shizuku_status"
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                        <TextView
+                            android:id="@+id/txt_shizuku_status"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Checking..."
+                            android:textAppearance="?attr/textAppearanceLabelMedium"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="8dp"
+                        android:background="?attr/colorOutlineVariant" />
+
+                    <!-- Row 2: WRITE_SECURE_SETTINGS -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_write_secure_status"
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                        <TextView
+                            android:id="@+id/txt_write_secure_status"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Not Granted"
+                            android:textAppearance="?attr/textAppearanceLabelMedium"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="8dp"
+                        android:background="?attr/colorOutlineVariant" />
+
+                    <!-- Row 3: All Apps Search Service -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_a11y_status"
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                        <TextView
+                            android:id="@+id/txt_a11y_status"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Inactive"
+                            android:textAppearance="?attr/textAppearanceLabelMedium"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- Action Button: Request Shizuku Permission -->
+                    <Button
+                        android:id="@+id/btn_request_shizuku"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/btn_request_shizuku" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Button: Add Widget to Home Screen (перемещен вниз, как просил пользователь!) -->
+            <Button
+                android:id="@+id/btn_pin_widget"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="14dp"
+                android:text="@string/btn_add_widget"
+                app:icon="@android:drawable/ic_input_add" />
 
         </LinearLayout>
 
     </ScrollView>
 
-    <!-- Sticky Bottom Action Bar -->
+    <!-- Sticky Bottom Action Bar (Apply Button) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:paddingHorizontal="20dp"
-        android:paddingVertical="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="12dp"
         android:background="@color/settings_card_bg"
-        android:elevation="8dp">
-
-        <Button
-            android:id="@+id/btn_pin_widget"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:text="@string/btn_add_widget" />
+        android:elevation="6dp">
 
         <Button
             android:id="@+id/btn_save_config"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="@string/btn_save" />
+            android:text="@string/btn_save"
+            android:textAppearance="?attr/textAppearanceTitleMedium" />
 
     </LinearLayout>
 

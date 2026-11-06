@@ -477,77 +477,79 @@ class MainActivity : AppCompatActivity() {
             ShizukuHelper.requestPermission(ShizukuHelper.SHIZUKU_REQUEST_CODE)
         }
 
+        val isRu = resources.configuration.locales[0].language == "ru"
+
         // 1. Shizuku Status
         when {
             !isInstalled -> {
-                txtShizukuStatus.text = "Not Installed"
+                txtShizukuStatus.text = if (isRu) "Не установлено" else "Not Installed"
                 txtShizukuStatus.setTextColor(Color.parseColor("#757575"))
             }
             !isRunning -> {
-                txtShizukuStatus.text = "Not Running"
+                txtShizukuStatus.text = if (isRu) "Не запущено" else "Not Running"
                 txtShizukuStatus.setTextColor(Color.parseColor("#BA1A1A"))
             }
             isShizukuGranted -> {
-                txtShizukuStatus.text = "Running (Permission Granted)"
+                txtShizukuStatus.text = if (isRu) "Активно" else "Active"
                 txtShizukuStatus.setTextColor(Color.parseColor("#2E7D32"))
             }
             else -> {
-                txtShizukuStatus.text = "Running (Permission Required)"
+                txtShizukuStatus.text = if (isRu) "Требует доступ" else "Need Permission"
                 txtShizukuStatus.setTextColor(Color.parseColor("#E65100"))
             }
         }
 
         // 2. WRITE_SECURE_SETTINGS Status
         if (hasWriteSecure) {
-            txtWriteSecureStatus.text = "Granted (Active)"
+            txtWriteSecureStatus.text = if (isRu) "Предоставлено" else "Granted"
             txtWriteSecureStatus.setTextColor(Color.parseColor("#2E7D32"))
             ServiceHelper.ensureAccessibilityServiceEnabled(this)
         } else {
-            txtWriteSecureStatus.text = "Not Granted"
+            txtWriteSecureStatus.text = if (isRu) "Не предоставлено" else "Not Granted"
             txtWriteSecureStatus.setTextColor(Color.parseColor("#E65100"))
         }
 
         // 3. All Apps Search Service (Accessibility)
         if (isA11yActive) {
-            txtA11yStatus.text = "Active"
+            txtA11yStatus.text = if (isRu) "Активно" else "Active"
             txtA11yStatus.setTextColor(Color.parseColor("#2E7D32"))
         } else {
-            txtA11yStatus.text = "Inactive"
+            txtA11yStatus.text = if (isRu) "Неактивно" else "Inactive"
             txtA11yStatus.setTextColor(Color.parseColor("#757575"))
         }
 
         // 4. Dock Switch Status (respect saved user preference)
         switchReplaceDock.isChecked = WidgetPrefs.isReplaceDockEnabled(this)
         txtDockStatus.text = if (hasWriteSecure) {
-            "WRITE_SECURE_SETTINGS active — Dynamic Search Sync & Classic Dock Ready"
+            if (isRu) "Встроен в док Pixel Launcher" else "Integrated into Pixel Launcher dock"
         } else {
-            "Grant WRITE_SECURE_SETTINGS via Shizuku or ADB to replace bottom dock"
+            if (isRu) "Требуется разрешение WRITE_SECURE_SETTINGS" else "Requires WRITE_SECURE_SETTINGS permission"
         }
 
         // 5. Button Text and Action State
         when {
             hasWriteSecure && isA11yActive -> {
-                btnRequestShizuku.text = "All Permissions Active"
+                btnRequestShizuku.text = if (isRu) "Все разрешения активны" else "All Permissions Active"
                 btnRequestShizuku.isEnabled = false
             }
             isRunning && isShizukuGranted && !hasWriteSecure -> {
-                btnRequestShizuku.text = "Grant System Permission via Shizuku"
+                btnRequestShizuku.text = if (isRu) "Выдать разрешение" else "Grant Permission"
                 btnRequestShizuku.isEnabled = true
             }
             isRunning && !isShizukuGranted -> {
-                btnRequestShizuku.text = "Request Shizuku Permission"
+                btnRequestShizuku.text = if (isRu) "Запросить доступ" else "Request Access"
                 btnRequestShizuku.isEnabled = true
             }
             !isRunning && isInstalled -> {
-                btnRequestShizuku.text = "Open Shizuku App"
+                btnRequestShizuku.text = if (isRu) "Открыть Shizuku" else "Open Shizuku"
                 btnRequestShizuku.isEnabled = true
             }
             !isInstalled -> {
-                btnRequestShizuku.text = "Install Shizuku"
+                btnRequestShizuku.text = if (isRu) "Установить Shizuku" else "Install Shizuku"
                 btnRequestShizuku.isEnabled = true
             }
             else -> {
-                btnRequestShizuku.text = "Configure via Shizuku"
+                btnRequestShizuku.text = if (isRu) "Настроить Shizuku" else "Configure Shizuku"
                 btnRequestShizuku.isEnabled = true
             }
         }
@@ -612,7 +614,7 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) {
                     pkg
                 }
-                "$appLabel ($pkg)"
+                appLabel
             }
             else -> getString(R.string.action_voice_search)
         }
