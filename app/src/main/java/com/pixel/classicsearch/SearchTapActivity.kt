@@ -188,10 +188,30 @@ class SearchTapActivity : Activity() {
             val prefixMatches = resolveInfos.filter {
                 it.loadLabel(pm).toString().startsWith(query, ignoreCase = true)
             }
-            if (prefixMatches.size == 1) {
-                val pkgName = prefixMatches[0].activityInfo.packageName
-                return pm.getLaunchIntentForPackage(pkgName)?.apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (prefixMatches.isNotEmpty()) {
+                val best = prefixMatches.minByOrNull { it.loadLabel(pm).toString().length }
+                val pkgName = best?.activityInfo?.packageName
+                if (pkgName != null) {
+                    return pm.getLaunchIntentForPackage(pkgName)?.apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                }
+            }
+
+            // 4. Word-boundary prefix match (e.g. "Play" -> "Google Play Store")
+            val wordMatches = resolveInfos.filter { info ->
+                val label = info.loadLabel(pm).toString()
+                label.split(" ", "-", "_", ".").any { word ->
+                    word.startsWith(query, ignoreCase = true)
+                }
+            }
+            if (wordMatches.isNotEmpty()) {
+                val best = wordMatches.minByOrNull { it.loadLabel(pm).toString().length }
+                val pkgName = best?.activityInfo?.packageName
+                if (pkgName != null) {
+                    return pm.getLaunchIntentForPackage(pkgName)?.apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
                 }
             }
 
