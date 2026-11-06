@@ -62,11 +62,11 @@ The search pill dynamically matches your wallpaper and Pixel Launcher's light/da
 ## Installation & Setup
 
 ### 1. Download & Install
-Download the latest stable (`v1.4.0`) APK from [GitHub Releases](https://github.com/Nornthenight/ClassicPixelSearch/releases) and install it on your Pixel phone or Pixel Tablet:
+Download the latest stable (`v1.4.1`) APK from [GitHub Releases](https://github.com/Nornthenight/ClassicPixelSearch/releases) and install it on your Pixel phone or Pixel Tablet:
 
 ```bash
-# Install v1.4.0 via ADB
-adb install -r ClassicPixelSearch-v1.4.0.apk
+# Install v1.4.1 via ADB
+adb install -r ClassicPixelSearch-v1.4.1.apk
 ```
 
 ### 2. Configure Permissions
