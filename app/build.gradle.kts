@@ -12,7 +12,7 @@ android {
         minSdk = 31 // Android 12+ (Material You / Monet dynamic colors)
         targetSdk = 35
         versionCode = 15
-        versionName = "1.4.2-beta"
+        versionName = "1.4.2"
     }
 
     buildTypes {
