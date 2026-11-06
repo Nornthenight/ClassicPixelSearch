@@ -4,18 +4,17 @@
 
 ---
 
-## 1. Сравнение версий v1.3.1-beta и v1.3.2-beta (Анализ регрессии)
+## 1. Сравнение версий и анализ архитектурных изменений
 
-### Что произошло:
-- **v1.3.1-beta (коммит `9676f6d`):**
-  - **Цель:** Восстановить OneSearch в шторке All Apps (поиск приложений в лаунчере с подсветкой первого совпадения синим контуром и открытием по клавише `Enter`).
-  - **Реализация:** В `LauncherStateService` при обнаружении фокуса или ввода в поле поиска Pixel Launcher (`ID_SEARCH_INPUT`), сервис на лету переключал `selected_search_engine` на `com.google.android.googlequicksearchbox`. При выходе возвращал обратно на `com.pixel.classicsearch`.
-  - **Побочный эффект:** Виджет `OseWidgetView` в доке Pixel Launcher отслеживает системную настройку `selected_search_engine`. Каждое переключение приводило к перемонтированию виджета. Во время свайпов, медленных нажатий и жестов док мерцал (flicker), кратковременно показывал стандартную плашку Google или вовсе исчезал до завершения анимации.
-
-- **v1.3.2-beta (коммит `c3408e5`):**
-  - **Цель:** Полностью исключить мерцание и исчезновение виджета в доке при любых жестах и свайпах.
-  - **Реализация:** В `LauncherStateService` удалили динамическое переключение движка поиска и урезали права Accessibility (`canRetrieveWindowContent = false`, оставлен только `TYPE_WINDOW_STATE_CHANGED`). Значение `selected_search_engine` заблокировано на `com.pixel.classicsearch`.
-  - **Возникшая регрессия:** Так как `selected_search_engine` теперь не переключается на Google при открытии All Apps, сам Pixel Launcher не запускает алгоритм OneSearch для подсветки результатов внутри лаунчера при вводе текста. Вся обработка запроса уходит в `SearchTapActivity` только при явном подтверждении, а живая подсветка приложения в списке и быстрый запуск по `Enter` перестали работать.
+### v1.4.1-beta2 (Фикс мерцания в Android 17 CP41.260831):
+- **Симптом:** При закрытии меню приложений (All Apps) в момент опускания шторки на доли секунды проскакивал старый дизайн поиска Google.
+- **Причина:** В предыдущих версиях сервис `LauncherStateService` принудительно переключал системный `selected_search_engine` на `com.google.android.googlequicksearchbox` при фокусе в поле поиска шторки, пытаясь активировать родной OneSearch. В Android 17 (сборка `CP41.260831`) Google окончательно развязал док (`search_container_hotseat`) и шторку (`search_container_all_apps`). В результате при падении шторки `OseWidgetView` лаунчера успевал перерисоваться в стоковый дизайн Google до того, как сервис асинхронно возвращал `com.pixel.classicsearch`.
+- **Решение (v1.4.1-beta2):**
+  1. Выделен `LauncherEnginePolicy`, который монотонно удерживает `selected_search_engine` на `com.pixel.classicsearch` без временного переключения на пакет Google.
+  2. В `LauncherStateService` удалены `TYPE_VIEW_FOCUSED` и `TYPE_VIEW_TEXT_CHANGED`, убран оверхед на чтение UI-нод при каждом символе ввода.
+  3. `accessibility_service_config.xml` переведен в облегченный режим (`canRetrieveWindowContent = false`, только `TYPE_WINDOW_STATE_CHANGED`).
+  4. Запуск приложений и обработка поисковых запросов в меню приложений стабильно обеспечивается через `SearchTapActivity` и `AppSearchMatcher`.
+  5. Покрыто юнит-тестами в `LauncherEnginePolicyTest`.
 
 ---
 
