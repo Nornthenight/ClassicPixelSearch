@@ -23,6 +23,9 @@ object WidgetPrefs {
     private const val KEY_RING_GAP = "ring_gap_dp"
     private const val KEY_CORNER_RADIUS = "corner_radius_dp"
 
+    // Feature 4: Default Search & AI Service for Enter query
+    private const val KEY_DEFAULT_SEARCH_AI = "default_search_ai"
+
     // Surface styles
     const val SURFACE_DEEP_RING = 0    // Default: system_accent2_300 frame + system_neutral1_10 inner
     const val SURFACE_PASTEL = 1       // system_accent1_200 frame + system_neutral1_10 inner
@@ -47,6 +50,15 @@ object WidgetPrefs {
     const val ACTION_BROWSER_FIREFOX = "browser_firefox"
     const val ACTION_BROWSER_CROMITE = "browser_cromite"
     const val PREFIX_APP = "app:"
+
+    // Search & AI Engine for Enter query
+    const val SEARCH_ENGINE_GOOGLE = "google"
+    const val SEARCH_ENGINE_CHATGPT = "chatgpt"
+    const val SEARCH_ENGINE_PERPLEXITY = "perplexity"
+    const val SEARCH_ENGINE_GEMINI = "gemini"
+    const val SEARCH_ENGINE_AI_MODE = "ai_mode"
+    const val SEARCH_ENGINE_COPILOT = "copilot"
+    const val SEARCH_ENGINE_CLAUDE = "claude"
 
     // Haptic feedback styles
     const val HAPTIC_CLOCK_TICK = 0
@@ -201,6 +213,20 @@ object WidgetPrefs {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putInt(KEY_CORNER_RADIUS, dp.coerceIn(12, 31))
+            .apply()
+    }
+
+    // --- Feature 4: Default Search & AI Service for Enter Query ---
+
+    fun getDefaultSearchAi(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_DEFAULT_SEARCH_AI, SEARCH_ENGINE_GOOGLE) ?: SEARCH_ENGINE_GOOGLE
+    }
+
+    fun setDefaultSearchAi(context: Context, engine: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_DEFAULT_SEARCH_AI, engine)
             .apply()
     }
 }

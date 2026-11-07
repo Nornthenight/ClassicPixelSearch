@@ -124,16 +124,9 @@ class SearchTapActivity : Activity() {
                 return
             }
 
-            val queryIntent = Intent(Intent.ACTION_WEB_SEARCH).apply {
-                setPackage(GOOGLE_PACKAGE)
-                putExtra(SearchManager.QUERY, trimmedQuery)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            }
-            val fallback = Intent(Intent.ACTION_WEB_SEARCH).apply {
-                putExtra(SearchManager.QUERY, trimmedQuery)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            safeStartActivity(resolveIntentWithFallback(queryIntent, fallback))
+            val defaultEngine = WidgetPrefs.getDefaultSearchAi(this)
+            val searchIntent = AiSearchDispatcher.createSearchIntent(this, defaultEngine, trimmedQuery)
+            safeStartActivity(searchIntent)
             return
         }
 

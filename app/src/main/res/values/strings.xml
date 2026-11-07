@@ -41,8 +41,13 @@
     <string name="action_browser_brave">Brave</string>
     <string name="action_browser_firefox">Firefox</string>
     <string name="action_browser_cromite">Cromite</string>
+    <string name="action_search_google">Google Web Search</string>
+    <string name="action_copilot">Microsoft Copilot</string>
+    <string name="action_claude">Claude</string>
+    <string name="label_default_search_ai">Search &amp; AI (Enter)</string>
     <string name="btn_choose_custom_app">Choose app…</string>
     <string name="dialog_select_action">Select Action</string>
+    <string name="dialog_select_search_ai">Select Search or AI Engine for Enter</string>
     <string name="dialog_choose_app">Choose App</string>
 
     <string name="section_geometry">Geometry &amp; Alpha</string>

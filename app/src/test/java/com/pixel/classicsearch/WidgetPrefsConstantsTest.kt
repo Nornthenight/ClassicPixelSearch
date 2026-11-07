@@ -40,4 +40,15 @@ class WidgetPrefsConstantsTest {
         assertEquals(1, WidgetPrefs.ICON_DYNAMIC_MONET)
         assertEquals(2, WidgetPrefs.ICON_CLASSIC_COLOR)
     }
+
+    @Test
+    fun `default search and AI service constants match expected identifier keys`() {
+        assertEquals("google", WidgetPrefs.SEARCH_ENGINE_GOOGLE)
+        assertEquals("chatgpt", WidgetPrefs.SEARCH_ENGINE_CHATGPT)
+        assertEquals("perplexity", WidgetPrefs.SEARCH_ENGINE_PERPLEXITY)
+        assertEquals("gemini", WidgetPrefs.SEARCH_ENGINE_GEMINI)
+        assertEquals("ai_mode", WidgetPrefs.SEARCH_ENGINE_AI_MODE)
+        assertEquals("copilot", WidgetPrefs.SEARCH_ENGINE_COPILOT)
+        assertEquals("claude", WidgetPrefs.SEARCH_ENGINE_CLAUDE)
+    }
 }

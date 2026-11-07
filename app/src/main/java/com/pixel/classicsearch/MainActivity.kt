@@ -92,6 +92,8 @@ class MainActivity : AppCompatActivity() {
         val txtMiddleActionDesc = findViewById<TextView>(R.id.txt_middle_action_desc)
         val rowAiAction = findViewById<View>(R.id.row_ai_action)
         val txtAiActionDesc = findViewById<TextView>(R.id.txt_ai_action_desc)
+        val rowDefaultSearchAi = findViewById<View>(R.id.row_default_search_ai)
+        val txtDefaultSearchAiDesc = findViewById<TextView>(R.id.txt_default_search_ai_desc)
         val btnPinWidget = findViewById<Button>(R.id.btn_pin_widget)
         val btnSave = findViewById<Button>(R.id.btn_save_config)
 
@@ -112,6 +114,7 @@ class MainActivity : AppCompatActivity() {
         var selectedMicAction = WidgetPrefs.getMicAction(this)
         var selectedMiddleAction = WidgetPrefs.getMiddleAction(this)
         var selectedAiAction = WidgetPrefs.getAiAction(this)
+        var selectedDefaultSearchAi = WidgetPrefs.getDefaultSearchAi(this)
 
         // Register Shizuku listeners
         try {
@@ -195,6 +198,7 @@ class MainActivity : AppCompatActivity() {
             txtMicActionDesc.text = formatActionLabel(selectedMicAction)
             txtMiddleActionDesc.text = formatActionLabel(selectedMiddleAction)
             txtAiActionDesc.text = formatActionLabel(selectedAiAction)
+            txtDefaultSearchAiDesc.text = formatSearchAiLabel(selectedDefaultSearchAi)
         }
 
         fun refreshStylePreview() {
@@ -328,6 +332,13 @@ class MainActivity : AppCompatActivity() {
                 refreshStylePreview()
             }
         }
+        rowDefaultSearchAi.setOnClickListener { v ->
+            performPreviewHaptic(v)
+            showDefaultSearchAiDialog(selectedDefaultSearchAi) { chosen ->
+                selectedDefaultSearchAi = chosen
+                refreshActionLabels()
+            }
+        }
 
         // Interactive live preview clicks
         previewLogo.setOnClickListener { v -> performPreviewHaptic(v) }
@@ -367,6 +378,7 @@ class MainActivity : AppCompatActivity() {
             WidgetPrefs.setMicAction(this, selectedMicAction)
             WidgetPrefs.setMiddleAction(this, selectedMiddleAction)
             WidgetPrefs.setAiAction(this, selectedAiAction)
+            WidgetPrefs.setDefaultSearchAi(this, selectedDefaultSearchAi)
             WidgetPrefs.setReplaceDockEnabled(this, replaceDock)
 
             ClassicSearchWidgetProvider.updateAllWidgets(this)
@@ -652,6 +664,66 @@ class MainActivity : AppCompatActivity() {
 
         AlertDialog.Builder(this)
             .setTitle(R.string.dialog_select_action)
+            .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
+                dialog.dismiss()
+                if (which == labels.lastIndex) {
+                    showInstalledAppsDialog(onSelected)
+                } else {
+                    onSelected(presetCodes[which])
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun formatSearchAiLabel(engine: String): String {
+        return when {
+            engine == WidgetPrefs.SEARCH_ENGINE_GOOGLE -> getString(R.string.action_search_google)
+            engine == WidgetPrefs.SEARCH_ENGINE_CHATGPT -> getString(R.string.action_chatgpt)
+            engine == WidgetPrefs.SEARCH_ENGINE_PERPLEXITY -> getString(R.string.action_perplexity)
+            engine == WidgetPrefs.SEARCH_ENGINE_GEMINI -> getString(R.string.action_gemini)
+            engine == WidgetPrefs.SEARCH_ENGINE_AI_MODE -> getString(R.string.action_ai_mode)
+            engine == WidgetPrefs.SEARCH_ENGINE_COPILOT -> getString(R.string.action_copilot)
+            engine == WidgetPrefs.SEARCH_ENGINE_CLAUDE -> getString(R.string.action_claude)
+            engine.startsWith(WidgetPrefs.PREFIX_APP) -> {
+                val pkg = engine.removePrefix(WidgetPrefs.PREFIX_APP)
+                try {
+                    val ai = packageManager.getApplicationInfo(pkg, 0)
+                    packageManager.getApplicationLabel(ai).toString()
+                } catch (_: Exception) {
+                    pkg
+                }
+            }
+            else -> getString(R.string.action_search_google)
+        }
+    }
+
+    private fun showDefaultSearchAiDialog(currentEngine: String, onSelected: (String) -> Unit) {
+        val presetCodes = arrayOf(
+            WidgetPrefs.SEARCH_ENGINE_GOOGLE,
+            WidgetPrefs.SEARCH_ENGINE_CHATGPT,
+            WidgetPrefs.SEARCH_ENGINE_PERPLEXITY,
+            WidgetPrefs.SEARCH_ENGINE_GEMINI,
+            WidgetPrefs.SEARCH_ENGINE_AI_MODE,
+            WidgetPrefs.SEARCH_ENGINE_COPILOT,
+            WidgetPrefs.SEARCH_ENGINE_CLAUDE
+        )
+        val labels = arrayOf(
+            getString(R.string.action_search_google),
+            getString(R.string.action_chatgpt),
+            getString(R.string.action_perplexity),
+            getString(R.string.action_gemini),
+            getString(R.string.action_ai_mode),
+            getString(R.string.action_copilot),
+            getString(R.string.action_claude),
+            getString(R.string.btn_choose_custom_app)
+        )
+        val checkedIndex = presetCodes.indexOf(currentEngine).let {
+            if (it >= 0) it else if (currentEngine.startsWith(WidgetPrefs.PREFIX_APP)) labels.lastIndex else 0
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.dialog_select_search_ai)
             .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
                 dialog.dismiss()
                 if (which == labels.lastIndex) {
