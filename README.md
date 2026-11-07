@@ -42,7 +42,9 @@ The search pill dynamically matches your wallpaper and Pixel Launcher's light/da
 - **Seamless Dock Integration & Fast App QuickLaunch**:
   - **Shizuku Integration**: One-tap `WRITE_SECURE_SETTINGS` grant to mount the widget directly inside Pixel Launcher's bottom search dock (`selected_search_engine`).
   - **Zero Dock Flickering**: Strict invariant in `LauncherStateService` keeps the dock rock-solid during any touch, swipe, or drag gestures without flashing stock Google layouts.
-  - **Enter QuickLaunch (`SearchTapActivity`)**: Pressing Enter on search queries instantly opens the matching installed application directly.
+  - **Enter QuickLaunch & AI Routing (`SearchTapActivity` & `AiSearchDispatcher`)**:
+    - Pressing Enter on matched app names instantly launches the application.
+    - If a question or non-app query is entered, it automatically dispatches to your chosen default AI service (ChatGPT, Perplexity, Gemini, AI Mode, Copilot, Claude, or Google Search) with the prompt pre-filled and ready to answer.
   - **Wallpaper & Monet Sync**: Automatically refreshes widget colors when the wallpaper or dynamic theme changes.
 
 ---
