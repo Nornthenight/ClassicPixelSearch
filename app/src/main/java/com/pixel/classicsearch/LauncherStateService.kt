@@ -60,7 +60,7 @@ class LauncherStateService : AccessibilityService() {
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                 AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
-        info.notificationTimeout = 20
+        info.notificationTimeout = 0
         serviceInfo = info
 
         // Register ContentObserver on theme_customization_overlay_packages
@@ -129,6 +129,15 @@ class LauncherStateService : AccessibilityService() {
                     highlightRunnable = null
                 }
                 ensureClassicSearchEngine()
+                if (WidgetPrefs.isQuickOverlayEnabled(this) && isAllAppsStateEvent(event)) {
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - QuickSearchActivity.lastDismissRealtimeMs > 1200L &&
+                        now - lastOverlayLaunchTime > 550L
+                    ) {
+                        lastOverlayLaunchTime = now
+                        launchQuickOverlayNow("")
+                    }
+                }
             }
             AccessibilityEvent.TYPE_VIEW_CLICKED,
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
@@ -136,6 +145,30 @@ class LauncherStateService : AccessibilityService() {
                 handleSearchInputEvent(event)
             }
         }
+    }
+
+    private fun isAllAppsStateEvent(event: AccessibilityEvent): Boolean {
+        val desc = event.contentDescription?.toString()?.lowercase()?.trim() ?: ""
+        val textJoined = event.text?.joinToString(" ") { it.toString() }?.lowercase()?.trim() ?: ""
+        val combined = "$desc $textJoined"
+        return combined.contains("all apps") ||
+                combined.contains("apps list") ||
+                combined.contains("список приложений") ||
+                combined.contains("все приложения")
+    }
+
+    private fun launchQuickOverlayNow(queryText: String) {
+        val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
+            if (queryText.isNotEmpty()) {
+                putExtra("query", queryText)
+            }
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_NO_ANIMATION
+            )
+        }
+        startActivity(overlayIntent)
     }
 
     private fun handleSearchInputEvent(event: AccessibilityEvent) {
@@ -156,25 +189,14 @@ class LauncherStateService : AccessibilityService() {
                     val isExplicitClickOrText = event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
                             (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED && queryText.isNotEmpty())
                     val isFocusAfterCooldown = event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED &&
-                            sinceDismiss > 1500L
+                            sinceDismiss > 1200L
 
-                    if (sinceLaunch > 700L && (isExplicitClickOrText || isFocusAfterCooldown)) {
+                    if (sinceLaunch > 550L && (isExplicitClickOrText || isFocusAfterCooldown)) {
                         lastOverlayLaunchTime = now
                         try {
                             source.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS)
                         } catch (_: Exception) {}
-                        val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
-                            if (queryText.isNotEmpty()) {
-                                putExtra("query", queryText)
-                            }
-                            addFlags(
-                                Intent.FLAG_ACTIVITY_NEW_TASK or
-                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                        Intent.FLAG_ACTIVITY_NO_ANIMATION
-                            )
-                        }
-                        startActivity(overlayIntent)
+                        launchQuickOverlayNow(queryText)
                         return
                     }
                 }

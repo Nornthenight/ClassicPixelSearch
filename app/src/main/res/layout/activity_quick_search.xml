@@ -4,7 +4,7 @@
     android:id="@+id/quick_overlay_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#80000000"
+    android:background="#22000000"
     android:clickable="true"
     android:focusable="true"
     android:fitsSystemWindows="true">

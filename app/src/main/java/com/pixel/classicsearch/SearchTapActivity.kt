@@ -135,7 +135,11 @@ class SearchTapActivity : Activity() {
         // Empty query (tap on search capsule or dock bar): open QuickSearch Overlay if enabled
         if (WidgetPrefs.isQuickOverlayEnabled(this)) {
             val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_NO_ANIMATION
+                )
             }
             safeStartActivity(overlayIntent)
             return

@@ -112,13 +112,13 @@
             </intent-filter>
         </activity>
 
-        <!-- Мгновенный поисковый оверлей QuickSearch (v1.5.0-alpha1) -->
+        <!-- Мгновенный поисковый оверлей QuickSearch (держится прогретым в памяти для 0мс открытия) -->
         <activity
             android:name=".QuickSearchActivity"
             android:excludeFromRecents="true"
             android:exported="true"
             android:launchMode="singleTask"
-            android:noHistory="true"
+            android:stateNotNeeded="true"
             android:taskAffinity="com.pixel.classicsearch.quick"
             android:theme="@style/Theme.ClassicPixelSearch.QuickOverlay"
             android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />

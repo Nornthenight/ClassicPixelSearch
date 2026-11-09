@@ -164,9 +164,27 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
                 createTapPendingIntent(context, SearchTapActivity.REQUEST_CODE_LOGO, SearchTapActivity.TARGET_LOGO)
             )
 
-            val searchPendingIntent = createTapPendingIntent(
-                context, SearchTapActivity.REQUEST_CODE_SEARCH, SearchTapActivity.TARGET_SEARCH
-            )
+            val searchPendingIntent = if (WidgetPrefs.isQuickOverlayEnabled(context)) {
+                val quickIntent = Intent(context, QuickSearchActivity::class.java).apply {
+                    action = Intent.ACTION_VIEW
+                    putExtra("from_widget", true)
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                Intent.FLAG_ACTIVITY_NO_ANIMATION
+                    )
+                }
+                PendingIntent.getActivity(
+                    context,
+                    SearchTapActivity.REQUEST_CODE_SEARCH,
+                    quickIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            } else {
+                createTapPendingIntent(
+                    context, SearchTapActivity.REQUEST_CODE_SEARCH, SearchTapActivity.TARGET_SEARCH
+                )
+            }
             views.setOnClickPendingIntent(R.id.search_pill_container, searchPendingIntent)
             views.setOnClickPendingIntent(R.id.search_touch_area, searchPendingIntent)
 

@@ -79,6 +79,8 @@ class QuickSearchActivity : AppCompatActivity() {
     private lateinit var listExpressiveResults: LinearLayout
 
     private var activeAiEngine: String = WidgetPrefs.SEARCH_ENGINE_GOOGLE
+    private var lastRenderedEngine: String = ""
+    private var lastRenderedRecentApps: List<String> = emptyList()
     private val currentItems = mutableListOf<ResultItem>()
     private val itemCards = mutableListOf<MaterialCardView>()
     private var selectedIndex: Int = 0
@@ -98,10 +100,7 @@ class QuickSearchActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         suppressTransitions()
         super.onCreate(savedInstanceState)
-        window.setSoftInputMode(
-            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or
-                    WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-        )
+        configureWindowBlurAndInput()
         setContentView(R.layout.activity_quick_search)
 
         AppLaunchCache.warmUpAsync(this)
@@ -110,19 +109,74 @@ class QuickSearchActivity : AppCompatActivity() {
         applyUserWidgetStyling()
         setupEngineChips()
         setupListeners()
-        populateRecentApps()
+        populateRecentApps(force = true)
 
+        if (intent?.getBooleanExtra("from_widget", false) == true) {
+            performHaptic(expressiveShell)
+        }
         applyIncomingIntent(intent)
+        playSeamlessEntrance()
         focusSearchInput()
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        configureWindowBlurAndInput()
+    }
+
+    private fun configureWindowBlurAndInput() {
+        val density = resources.displayMetrics.density
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or
+                    WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        )
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_BLUR_BEHIND or
+                    WindowManager.LayoutParams.FLAG_DIM_BEHIND
+        )
+        window.attributes = window.attributes.apply {
+            blurBehindRadius = (44 * density).roundToInt()
+            dimAmount = 0.32f
+        }
+        try {
+            window.setBackgroundBlurRadius((30 * density).roundToInt())
+        } catch (_: Exception) {}
+    }
+
     override fun onNewIntent(intent: Intent) {
+        suppressTransitions()
         super.onNewIntent(intent)
         setIntent(intent)
-        setupEngineChips()
-        populateRecentApps()
+
+        if (intent.getBooleanExtra("from_widget", false)) {
+            performHaptic(expressiveShell)
+        }
+
+        val currentEnginePref = WidgetPrefs.getDefaultSearchAi(this)
+        if (currentEnginePref != lastRenderedEngine) {
+            setupEngineChips()
+        }
+        populateRecentApps(force = false)
         applyIncomingIntent(intent)
+        playSeamlessEntrance()
         focusSearchInput()
+    }
+
+    private fun playSeamlessEntrance() {
+        val density = resources.displayMetrics.density
+        expressiveShell.animate().cancel()
+        expressiveShell.translationY = 12f * density
+        expressiveShell.scaleX = 0.985f
+        expressiveShell.scaleY = 0.985f
+        expressiveShell.alpha = 0.78f
+        expressiveShell.animate()
+            .translationY(0f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(95L)
+            .setInterpolator(OvershootInterpolator(1.05f))
+            .start()
     }
 
     private fun applyIncomingIntent(incoming: Intent?) {
@@ -141,10 +195,11 @@ class QuickSearchActivity : AppCompatActivity() {
 
     private fun focusSearchInput() {
         editSearch.requestFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.showSoftInput(editSearch, 0)
         editSearch.postDelayed({
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.showSoftInput(editSearch, InputMethodManager.SHOW_IMPLICIT)
-        }, 35L)
+        }, 16L)
     }
 
     private fun bindViews() {
@@ -197,18 +252,6 @@ class QuickSearchActivity : AppCompatActivity() {
                 gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             }
         }
-
-        // Expressive entrance animation on shell
-        expressiveShell.scaleX = 0.97f
-        expressiveShell.scaleY = 0.97f
-        expressiveShell.alpha = 0f
-        expressiveShell.animate()
-            .scaleX(1f)
-            .scaleY(1f)
-            .alpha(1f)
-            .setDuration(150L)
-            .setInterpolator(OvershootInterpolator(1.1f))
-            .start()
     }
 
     private fun updateClearOrMicIcon(isEmpty: Boolean) {
@@ -232,6 +275,7 @@ class QuickSearchActivity : AppCompatActivity() {
      */
     private fun setupEngineChips() {
         activeAiEngine = WidgetPrefs.getDefaultSearchAi(this)
+        lastRenderedEngine = activeAiEngine
         chipGroupEngines.removeAllViews()
 
         val density = resources.displayMetrics.density
@@ -302,7 +346,12 @@ class QuickSearchActivity : AppCompatActivity() {
     /**
      * Populates the Material 3 Expressive Quick Launch row with up to 5 recent or top installed apps.
      */
-    private fun populateRecentApps() {
+    private fun populateRecentApps(force: Boolean) {
+        val recentPkgs = WidgetPrefs.getRecentApps(this)
+        if (!force && rowRecentApps.childCount > 0 && recentPkgs == lastRenderedRecentApps) {
+            return
+        }
+        lastRenderedRecentApps = recentPkgs
         rowRecentApps.removeAllViews()
         val candidates = AppLaunchCache.getCandidates(this)
         if (candidates.isEmpty()) {
@@ -311,7 +360,6 @@ class QuickSearchActivity : AppCompatActivity() {
         }
 
         val byPkg = candidates.associateBy { it.packageName }
-        val recentPkgs = WidgetPrefs.getRecentApps(this)
         val selectedApps = mutableListOf<AppSearchCandidate>()
 
         for (pkg in recentPkgs) {
@@ -840,21 +888,37 @@ class QuickSearchActivity : AppCompatActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         lastDismissRealtimeMs = SystemClock.elapsedRealtime()
-        closeOverlay()
+        resetInputAndHideIme()
     }
 
     override fun onStop() {
         super.onStop()
         lastDismissRealtimeMs = SystemClock.elapsedRealtime()
-        if (!isFinishing) {
-            finish()
-            suppressTransitions()
+        resetInputAndHideIme()
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        closeOverlay()
+    }
+
+    private fun resetInputAndHideIme() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(editSearch.windowToken, 0)
+        if (!editSearch.text.isNullOrEmpty()) {
+            editSearch.setText("")
         }
     }
 
+    /**
+     * Moves the overlay task to the background instead of destroying the Activity,
+     * keeping all Material 3 Expressive views and the hardware blur window pre-warmed in RAM
+     * so subsequent widget taps and App Drawer swipes open in < 8ms!
+     */
     private fun closeOverlay() {
         lastDismissRealtimeMs = SystemClock.elapsedRealtime()
-        finish()
+        resetInputAndHideIme()
+        moveTaskToBack(true)
         suppressTransitions()
     }
 
