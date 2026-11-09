@@ -18,6 +18,10 @@
         <package android:name="com.google.ar.lens" />
         <package android:name="com.openai.chatgpt" />
         <package android:name="ai.perplexity.app.android" />
+        <package android:name="com.microsoft.copilot" />
+        <package android:name="com.anthropic.claude" />
+        <package android:name="com.google.android.youtube" />
+        <package android:name="com.android.chrome" />
         <package android:name="com.google.android.gms" />
         <package android:name="com.brave.browser" />
         <package android:name="org.mozilla.firefox" />
@@ -107,6 +111,17 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Мгновенный поисковый оверлей QuickSearch (v1.5.0-alpha1) -->
+        <activity
+            android:name=".QuickSearchActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity="com.pixel.classicsearch.quick"
+            android:theme="@style/Theme.ClassicPixelSearch.QuickOverlay"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />
 
         <!-- Провайдер виджета поиска Pixel (с категорией searchbox для встраивания в док Pixel Launcher) -->
         <receiver

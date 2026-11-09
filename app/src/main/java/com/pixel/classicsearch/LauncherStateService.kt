@@ -97,6 +97,7 @@ class LauncherStateService : AccessibilityService() {
         if (WidgetPrefs.isReplaceDockEnabled(this)) {
             ensureClassicSearchEngine()
         }
+        AppLaunchCache.warmUpAsync(this)
     }
 
     private fun triggerDebouncedWidgetUpdate() {
@@ -166,12 +167,11 @@ class LauncherStateService : AccessibilityService() {
             if (pkg != PIXEL_LAUNCHER_PKG) return
 
             val resultContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_RESULTS)
-                .ifEmpty { root.findAccessibilityNodeInfosByViewId(ID_APPS_LIST) }
-
             for (container in resultContainers) {
                 if (container.childCount > 0) {
                     val firstChild = container.getChild(0)
                     if (firstChild != null) {
+                        firstChild.performAction(AccessibilityNodeInfo.ACTION_SELECT)
                         firstChild.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS)
                         try { firstChild.recycle() } catch (_: Exception) {}
                         break
@@ -203,29 +203,53 @@ class LauncherStateService : AccessibilityService() {
             val pkg = root.packageName?.toString()
             if (pkg != PIXEL_LAUNCHER_PKG) return false
 
-            // 1. Try clicking the first accessibility-focused or first child item in search results
-            val resultContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_RESULTS)
-                .ifEmpty { root.findAccessibilityNodeInfosByViewId(ID_APPS_LIST) }
-
-            for (container in resultContainers) {
-                if (container.childCount > 0) {
-                    val firstChild = container.getChild(0)
-                    if (firstChild != null) {
-                        val clicked = firstChild.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        try { firstChild.recycle() } catch (_: Exception) {}
-                        if (clicked) return true
-                    }
-                }
-                try { container.recycle() } catch (_: Exception) {}
-            }
-
-            // 2. Direct match fallback: read query from ID_SEARCH_INPUT and launch best candidate
+            // Read query from ID_SEARCH_INPUT first to decide whether it's an app query or AI question
             val inputs = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_INPUT)
             val query = inputs.firstOrNull()?.text?.toString()?.trim()
             inputs.forEach { try { it.recycle() } catch (_: Exception) {} }
 
             if (!query.isNullOrEmpty()) {
-                return launchBestMatchingApp(query)
+                // 1. Check !bang command
+                val bang = QuickCalculator.parseBangCommand(query)
+                if (bang != null) {
+                    val bangIntent = if (bang.isYouTube) {
+                        val encoded = Uri.encode(bang.cleanQuery)
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=$encoded")).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                    } else {
+                        AiSearchDispatcher.createSearchIntent(this, bang.engineOrTarget, bang.cleanQuery)
+                    }
+                    startActivity(bangIntent)
+                    return true
+                }
+
+                // 2. Check AppSearchMatcher via in-memory AppLaunchCache
+                if (launchBestMatchingApp(query)) {
+                    return true
+                }
+
+                // 3. If not an explicit question and single word, try clicking top card in ID_SEARCH_RESULTS
+                if (!query.contains('?') && !query.contains(' ')) {
+                    val resultContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_RESULTS)
+                    for (container in resultContainers) {
+                        if (container.childCount > 0) {
+                            val firstChild = container.getChild(0)
+                            if (firstChild != null) {
+                                val clicked = firstChild.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                                try { firstChild.recycle() } catch (_: Exception) {}
+                                if (clicked) return true
+                            }
+                        }
+                        try { container.recycle() } catch (_: Exception) {}
+                    }
+                }
+
+                // 4. Route non-app query / question directly to the default AI service
+                val defaultEngine = WidgetPrefs.getDefaultSearchAi(this)
+                val aiIntent = AiSearchDispatcher.createSearchIntent(this, defaultEngine, query)
+                startActivity(aiIntent)
+                return true
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to launch result on enter", e)
@@ -237,20 +261,10 @@ class LauncherStateService : AccessibilityService() {
 
     private fun launchBestMatchingApp(query: String): Boolean {
         return try {
-            val pm = packageManager
-            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
-            }
-            val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
-            val candidates = resolveInfos.map {
-                AppSearchCandidate(
-                    packageName = it.activityInfo.packageName,
-                    label = it.loadLabel(pm).toString()
-                )
-            }
+            val candidates = AppLaunchCache.getCandidates(this)
             val best = AppSearchMatcher.findBestMatch(candidates, query)
             if (best != null) {
-                val launchIntent = pm.getLaunchIntentForPackage(best.packageName)?.apply {
+                val launchIntent = packageManager.getLaunchIntentForPackage(best.packageName)?.apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 if (launchIntent != null) {

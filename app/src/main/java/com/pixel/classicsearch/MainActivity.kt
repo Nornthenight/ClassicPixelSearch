@@ -74,6 +74,9 @@ class MainActivity : AppCompatActivity() {
         switchReplaceDock = findViewById(R.id.switch_replace_dock)
         txtDockStatus = findViewById(R.id.txt_dock_status)
 
+        val switchQuickOverlay = findViewById<MaterialSwitch>(R.id.switch_quick_overlay)
+        val btnTestQuickOverlay = findViewById<Button>(R.id.btn_test_quick_overlay)
+        val rowA11yStatus = findViewById<View>(R.id.row_a11y_status)
         val rgFrameStyle = findViewById<RadioGroup>(R.id.rg_frame_style)
         val rgIconStyle = findViewById<RadioGroup>(R.id.rg_icon_style)
         val seekOpacity = findViewById<SeekBar>(R.id.seek_opacity)
@@ -128,6 +131,19 @@ class MainActivity : AppCompatActivity() {
         // Configure btn_request_shizuku click action
         btnRequestShizuku.setOnClickListener {
             handleShizukuAction()
+        }
+
+        rowA11yStatus.setOnClickListener {
+            try {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            } catch (_: Exception) {}
+        }
+
+        AppLaunchCache.warmUpAsync(this)
+        switchQuickOverlay.isChecked = WidgetPrefs.isQuickOverlayEnabled(this)
+
+        btnTestQuickOverlay.setOnClickListener {
+            startActivity(Intent(this, QuickSearchActivity::class.java))
         }
 
         // Load saved preferences
@@ -258,20 +274,49 @@ class MainActivity : AppCompatActivity() {
             bgOuterLayer.alpha = mainAlpha * (outerAlpha / 100f)
         }
 
+        fun autoSaveAndRefreshWidget() {
+            WidgetPrefs.setQuickOverlayEnabled(this, switchQuickOverlay.isChecked)
+            WidgetPrefs.setSurfaceStyle(this, getSelectedSurfaceStyle())
+            WidgetPrefs.setIconStyle(this, getSelectedIconStyle())
+            WidgetPrefs.setOpacityPercent(this, seekOpacity.progress)
+            WidgetPrefs.setOuterAlphaPercent(this, seekOuterAlpha.progress)
+            WidgetPrefs.setRingGapDp(this, seekRingGap.progress)
+            WidgetPrefs.setCornerRadiusDp(this, seekCornerRadius.progress)
+            WidgetPrefs.setHapticEnabled(this, switchHaptic.isChecked)
+            WidgetPrefs.setHapticStyle(this, getSelectedHapticStyle())
+            WidgetPrefs.setMicAction(this, selectedMicAction)
+            WidgetPrefs.setMiddleAction(this, selectedMiddleAction)
+            WidgetPrefs.setAiAction(this, selectedAiAction)
+            WidgetPrefs.setDefaultSearchAi(this, selectedDefaultSearchAi)
+            WidgetPrefs.setReplaceDockEnabled(this, switchReplaceDock.isChecked)
+            ClassicSearchWidgetProvider.updateAllWidgets(this)
+        }
+
         refreshActionLabels()
         refreshStylePreview()
         refreshOpacityPreview(initialOpacity, initialOuterAlpha)
 
+        switchQuickOverlay.setOnCheckedChangeListener { v, _ ->
+            performPreviewHaptic(v)
+            autoSaveAndRefreshWidget()
+        }
+        switchHaptic.setOnCheckedChangeListener { v, _ ->
+            performPreviewHaptic(v)
+            autoSaveAndRefreshWidget()
+        }
         rgFrameStyle.setOnCheckedChangeListener { v, _ ->
             performPreviewHaptic(v)
             refreshStylePreview()
+            autoSaveAndRefreshWidget()
         }
         rgIconStyle.setOnCheckedChangeListener { v, _ ->
             performPreviewHaptic(v)
             refreshStylePreview()
+            autoSaveAndRefreshWidget()
         }
         rgHapticStyle.setOnCheckedChangeListener { v, _ ->
             performPreviewHaptic(v)
+            autoSaveAndRefreshWidget()
         }
 
         seekOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -279,7 +324,9 @@ class MainActivity : AppCompatActivity() {
                 refreshOpacityPreview(progress, seekOuterAlpha.progress)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                autoSaveAndRefreshWidget()
+            }
         })
 
         seekOuterAlpha.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -287,7 +334,9 @@ class MainActivity : AppCompatActivity() {
                 refreshOpacityPreview(seekOpacity.progress, progress)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                autoSaveAndRefreshWidget()
+            }
         })
 
         seekRingGap.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -296,7 +345,9 @@ class MainActivity : AppCompatActivity() {
                 refreshStylePreview()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                autoSaveAndRefreshWidget()
+            }
         })
 
         seekCornerRadius.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -305,7 +356,9 @@ class MainActivity : AppCompatActivity() {
                 refreshStylePreview()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                autoSaveAndRefreshWidget()
+            }
         })
 
         rowMicAction.setOnClickListener { v ->
@@ -314,6 +367,7 @@ class MainActivity : AppCompatActivity() {
                 selectedMicAction = chosen
                 refreshActionLabels()
                 refreshStylePreview()
+                autoSaveAndRefreshWidget()
             }
         }
         rowMiddleAction.setOnClickListener { v ->
@@ -322,6 +376,7 @@ class MainActivity : AppCompatActivity() {
                 selectedMiddleAction = chosen
                 refreshActionLabels()
                 refreshStylePreview()
+                autoSaveAndRefreshWidget()
             }
         }
         rowAiAction.setOnClickListener { v ->
@@ -330,6 +385,7 @@ class MainActivity : AppCompatActivity() {
                 selectedAiAction = chosen
                 refreshActionLabels()
                 refreshStylePreview()
+                autoSaveAndRefreshWidget()
             }
         }
         rowDefaultSearchAi.setOnClickListener { v ->
@@ -337,13 +393,20 @@ class MainActivity : AppCompatActivity() {
             showDefaultSearchAiDialog(selectedDefaultSearchAi) { chosen ->
                 selectedDefaultSearchAi = chosen
                 refreshActionLabels()
+                autoSaveAndRefreshWidget()
             }
         }
 
-        // Interactive live preview clicks
+        // Interactive live preview clicks (tapping search bar opens QuickSearch Overlay!)
         previewLogo.setOnClickListener { v -> performPreviewHaptic(v) }
-        previewPillContainer.setOnClickListener { v -> performPreviewHaptic(v) }
-        previewTouchArea.setOnClickListener { v -> performPreviewHaptic(v) }
+        previewPillContainer.setOnClickListener { v ->
+            performPreviewHaptic(v)
+            startActivity(Intent(this, QuickSearchActivity::class.java))
+        }
+        previewTouchArea.setOnClickListener { v ->
+            performPreviewHaptic(v)
+            startActivity(Intent(this, QuickSearchActivity::class.java))
+        }
         previewMic.setOnClickListener { v -> performPreviewHaptic(v) }
         previewGemini.setOnClickListener { v -> performPreviewHaptic(v) }
         previewAi.setOnClickListener { v -> performPreviewHaptic(v) }
@@ -367,21 +430,7 @@ class MainActivity : AppCompatActivity() {
         btnSave.setOnClickListener { v ->
             performPreviewHaptic(v)
             val replaceDock = switchReplaceDock.isChecked
-            WidgetPrefs.setSurfaceStyle(this, getSelectedSurfaceStyle())
-            WidgetPrefs.setIconStyle(this, getSelectedIconStyle())
-            WidgetPrefs.setOpacityPercent(this, seekOpacity.progress)
-            WidgetPrefs.setOuterAlphaPercent(this, seekOuterAlpha.progress)
-            WidgetPrefs.setRingGapDp(this, seekRingGap.progress)
-            WidgetPrefs.setCornerRadiusDp(this, seekCornerRadius.progress)
-            WidgetPrefs.setHapticEnabled(this, switchHaptic.isChecked)
-            WidgetPrefs.setHapticStyle(this, getSelectedHapticStyle())
-            WidgetPrefs.setMicAction(this, selectedMicAction)
-            WidgetPrefs.setMiddleAction(this, selectedMiddleAction)
-            WidgetPrefs.setAiAction(this, selectedAiAction)
-            WidgetPrefs.setDefaultSearchAi(this, selectedDefaultSearchAi)
-            WidgetPrefs.setReplaceDockEnabled(this, replaceDock)
-
-            ClassicSearchWidgetProvider.updateAllWidgets(this)
+            autoSaveAndRefreshWidget()
 
             val appCtx = applicationContext
             val targetValue = if (replaceDock) packageName else null

@@ -53,19 +53,6 @@ class SearchTapActivity : Activity() {
         if (!WidgetPrefs.isHapticEnabled(this)) return
 
         val style = WidgetPrefs.getHapticStyle(this)
-        val viewConstant = if (style == WidgetPrefs.HAPTIC_CONTEXT_CLICK) {
-            HapticFeedbackConstants.CONTEXT_CLICK
-        } else {
-            HapticFeedbackConstants.CLOCK_TICK
-        }
-
-        try {
-            window?.decorView?.performHapticFeedback(
-                viewConstant,
-                HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING
-            )
-        } catch (_: Exception) {}
-
         try {
             val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
@@ -120,6 +107,20 @@ class SearchTapActivity : Activity() {
         val defaultEngine = WidgetPrefs.getDefaultSearchAi(this)
 
         if (!trimmedQuery.isNullOrBlank()) {
+            val bang = QuickCalculator.parseBangCommand(trimmedQuery)
+            if (bang != null) {
+                val bangIntent = if (bang.isYouTube) {
+                    val encoded = Uri.encode(bang.cleanQuery)
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=$encoded")).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                } else {
+                    AiSearchDispatcher.createSearchIntent(this, bang.engineOrTarget, bang.cleanQuery)
+                }
+                safeStartActivity(bangIntent)
+                return
+            }
+
             val matchedApp = findMatchingAppLaunchIntent(trimmedQuery)
             if (matchedApp != null) {
                 safeStartActivity(matchedApp)
@@ -131,7 +132,16 @@ class SearchTapActivity : Activity() {
             return
         }
 
-        // Empty query (tap on search capsule or swipe without query): open default engine
+        // Empty query (tap on search capsule or dock bar): open QuickSearch Overlay if enabled
+        if (WidgetPrefs.isQuickOverlayEnabled(this)) {
+            val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            safeStartActivity(overlayIntent)
+            return
+        }
+
+        // Fallback when QuickSearch Overlay is disabled: open default AI or Google Search
         if (defaultEngine != WidgetPrefs.SEARCH_ENGINE_GOOGLE) {
             val emptyIntent = AiSearchDispatcher.createSearchIntent(this, defaultEngine, "")
             safeStartActivity(emptyIntent)
@@ -162,22 +172,11 @@ class SearchTapActivity : Activity() {
 
     private fun findMatchingAppLaunchIntent(query: String): Intent? {
         return try {
-            val pm = packageManager
-            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
-            }
-            val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
-            if (resolveInfos.isEmpty()) return null
-
-            val candidates = resolveInfos.map {
-                AppSearchCandidate(
-                    packageName = it.activityInfo.packageName,
-                    label = it.loadLabel(pm).toString()
-                )
-            }
+            val candidates = AppLaunchCache.getCandidates(this)
+            if (candidates.isEmpty()) return null
 
             val bestMatch = AppSearchMatcher.findBestMatch(candidates, query) ?: return null
-            pm.getLaunchIntentForPackage(bestMatch.packageName)?.apply {
+            packageManager.getLaunchIntentForPackage(bestMatch.packageName)?.apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
         } catch (_: Exception) {

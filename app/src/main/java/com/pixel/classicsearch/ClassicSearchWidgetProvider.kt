@@ -75,11 +75,6 @@ class ClassicSearchWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_classic_search)
 
             // 1. Measure and resolve widget geometry
-            val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
-            val minWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) ?: 0
-            val maxWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0) ?: 0
-            val widgetWidthDp = (if (minWidth > 0) minWidth else 320).coerceIn(220, 600)
-
             val density = context.resources.displayMetrics.density
             val outerHeightDp = 62
             val outerHeightPx = (outerHeightDp * density).roundToInt()

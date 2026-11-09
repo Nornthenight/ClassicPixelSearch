@@ -10,9 +10,19 @@
     <string name="cd_ai_mode">Режим ИИ</string>
 
     <string name="settings_title">Pixel Search</string>
-    <string name="badge_beta">БЕТА</string>
+    <string name="badge_beta">АЛЬФА</string>
 
-    <string name="preview_label">Предпросмотр</string>
+    <string name="preview_label">Предпросмотр (тапните по строке для теста QuickSearch)</string>
+
+    <string name="quick_search_hint">Поиск приложений, расчёт или вопрос ИИ…</string>
+    <string name="quick_search_hint_dynamic">Найти приложение или спросить %1$s…</string>
+    <string name="quick_calc_copy_hint">Мгновенный калькулятор • Тап или Enter — скопировать</string>
+    <string name="quick_calc_copied">Скопировано: %1$s</string>
+    <string name="quick_top_app_hint">Первое совпадение • Нажмите Enter ↵ для запуска</string>
+    <string name="quick_ask_ai_format">Спросить %1$s</string>
+    <string name="option_quick_overlay">Оверлей QuickSearch (Альфа)</string>
+    <string name="option_quick_overlay_desc">Мгновенное окно поиска поверх экрана: подсветка приложений по Enter, чипы ИИ, калькулятор и !bang-команды (!p, !c, !g, !y)</string>
+    <string name="btn_test_quick_overlay">Открыть оверлей QuickSearch</string>
 
     <!-- Разделы кастомизации -->
     <string name="section_appearance">Внешний вид</string>

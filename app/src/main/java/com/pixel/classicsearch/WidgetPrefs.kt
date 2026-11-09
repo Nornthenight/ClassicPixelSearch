@@ -26,6 +26,9 @@ object WidgetPrefs {
     // Feature 4: Default Search & AI Service for Enter query
     private const val KEY_DEFAULT_SEARCH_AI = "default_search_ai"
 
+    // Feature 5: QuickSearch Overlay (v1.5.0-alpha1)
+    private const val KEY_QUICK_OVERLAY_ENABLED = "quick_overlay_enabled"
+
     // Surface styles
     const val SURFACE_DEEP_RING = 0    // Default: system_accent2_300 frame + system_neutral1_10 inner
     const val SURFACE_PASTEL = 1       // system_accent1_200 frame + system_neutral1_10 inner
@@ -227,6 +230,20 @@ object WidgetPrefs {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_DEFAULT_SEARCH_AI, engine)
+            .apply()
+    }
+
+    // --- Feature 5: QuickSearch Overlay (v1.5.0-alpha1) ---
+
+    fun isQuickOverlayEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_QUICK_OVERLAY_ENABLED, true)
+    }
+
+    fun setQuickOverlayEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_QUICK_OVERLAY_ENABLED, enabled)
             .apply()
     }
 }

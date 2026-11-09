@@ -10,9 +10,19 @@
     <string name="cd_ai_mode">Google Search AI Mode</string>
 
     <string name="settings_title">Pixel Search</string>
-    <string name="badge_beta">BETA</string>
+    <string name="badge_beta">ALPHA</string>
 
-    <string name="preview_label">Preview</string>
+    <string name="preview_label">Preview (Tap search bar to test QuickSearch)</string>
+
+    <string name="quick_search_hint">Search apps, calculate, or ask AI…</string>
+    <string name="quick_search_hint_dynamic">Search apps or ask %1$s…</string>
+    <string name="quick_calc_copy_hint">Instant Calculator • Tap or press Enter to copy</string>
+    <string name="quick_calc_copied">Copied: %1$s</string>
+    <string name="quick_top_app_hint">Top Match • Press Enter ↵ to launch</string>
+    <string name="quick_ask_ai_format">Ask %1$s</string>
+    <string name="option_quick_overlay">QuickSearch Overlay (Alpha)</string>
+    <string name="option_quick_overlay_desc">Instant translucent search bar with live app highlight, AI chips, calculator, and !bang commands (!p, !c, !g, !y)</string>
+    <string name="btn_test_quick_overlay">Launch QuickSearch Overlay</string>
 
     <!-- Customization sections -->
     <string name="section_appearance">Appearance</string>

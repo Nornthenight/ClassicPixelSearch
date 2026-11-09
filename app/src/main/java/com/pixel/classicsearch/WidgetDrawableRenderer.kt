@@ -102,6 +102,9 @@ object WidgetDrawableRenderer {
         val left = Bitmap.createBitmap(master, 0, 0, capWidth, h)
         val center = Bitmap.createBitmap(master, capWidth, 0, centerWidth, h)
         val right = Bitmap.createBitmap(master, capWidth + centerWidth, 0, capWidth, h)
+        if (master != left && master != center && master != right) {
+            master.recycle()
+        }
         return ThreeSliceBitmaps(left, center, right)
     }
 

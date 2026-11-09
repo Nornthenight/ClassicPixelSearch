@@ -3,6 +3,7 @@ package com.pixel.classicsearch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppSearchMatcherTest {
@@ -13,9 +14,11 @@ class AppSearchMatcherTest {
         AppSearchCandidate("org.telegram.messenger", "Telegram"),
         AppSearchCandidate("com.spotify.music", "Spotify"),
         AppSearchCandidate("com.android.chrome", "Chrome"),
+        AppSearchCandidate("com.google.android.youtube", "YouTube"),
         AppSearchCandidate("com.calculator", "Calculator"),
         AppSearchCandidate("com.calendar", "Calendar"),
         AppSearchCandidate("com.avito.android", "Авито"),
+        AppSearchCandidate("ru.auto.ara", "Авто.ру"),
         AppSearchCandidate("ru.profi.client", "PROFI.RU")
     )
 
@@ -47,7 +50,6 @@ class AppSearchMatcherTest {
 
     @Test
     fun `word boundary prefix matches inside multi-word titles`() {
-        // Query "Play" should match "Google Play Store"
         val result = AppSearchMatcher.findBestMatch(sampleCandidates, "Play")
         assertNotNull(result)
         assertEquals("com.android.vending", result?.packageName)
@@ -60,6 +62,31 @@ class AppSearchMatcherTest {
         assertNotNull(result)
         assertEquals("com.avito.android", result?.packageName)
         assertEquals("Авито", result?.label)
+    }
+
+    @Test
+    fun `bidirectional Cyrillic query matches English app names via phonetic or alias`() {
+        assertEquals("org.telegram.messenger", AppSearchMatcher.findBestMatch(sampleCandidates, "телеграм")?.packageName)
+        assertEquals("org.telegram.messenger", AppSearchMatcher.findBestMatch(sampleCandidates, "тг")?.packageName)
+        assertEquals("com.spotify.music", AppSearchMatcher.findBestMatch(sampleCandidates, "спотифай")?.packageName)
+        assertEquals("com.google.android.youtube", AppSearchMatcher.findBestMatch(sampleCandidates, "ютуб")?.packageName)
+        assertEquals("com.android.chrome", AppSearchMatcher.findBestMatch(sampleCandidates, "хром")?.packageName)
+    }
+
+    @Test
+    fun `JCUKEN to QWERTY layout switch resolves English app typed on Russian keyboard`() {
+        // "еудупкфь" is "telegram" typed on a Russian JCUKEN keyboard
+        val result = AppSearchMatcher.findBestMatch(sampleCandidates, "еудупкфь")
+        assertNotNull(result)
+        assertEquals("org.telegram.messenger", result?.packageName)
+    }
+
+    @Test
+    fun `findMatches returns multiple ranked candidates for prefix АВ`() {
+        val matches = AppSearchMatcher.findMatches(sampleCandidates, "АВ", limit = 5)
+        assertEquals(2, matches.size)
+        assertEquals("Авито", matches[0].label)
+        assertEquals("Авто.ру", matches[1].label)
     }
 
     @Test
@@ -100,15 +127,15 @@ class AppSearchMatcherTest {
 
     @Test
     fun `multi-word search queries and questions do not falsely match apps`() {
-        // Multi-word queries with spaces must return null so they route to AI Search
         assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "погода в москве"))
         assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "how to bake cookies"))
         assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "tell me a joke"))
     }
 
     @Test
-    fun `queries with question mark return null for AI routing`() {
+    fun `queries with question mark or bang prefix return null for AI routing`() {
         assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "what is this?"))
         assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "chrome?"))
+        assertTrue(AppSearchMatcher.findMatches(sampleCandidates, "!p telegram").isEmpty())
     }
 }
