@@ -117,6 +117,8 @@ class SearchTapActivity : Activity() {
             ?: intent?.data?.getQueryParameter(SearchManager.QUERY)
 
         val trimmedQuery = query?.trim()
+        val defaultEngine = WidgetPrefs.getDefaultSearchAi(this)
+
         if (!trimmedQuery.isNullOrBlank()) {
             val matchedApp = findMatchingAppLaunchIntent(trimmedQuery)
             if (matchedApp != null) {
@@ -124,9 +126,15 @@ class SearchTapActivity : Activity() {
                 return
             }
 
-            val defaultEngine = WidgetPrefs.getDefaultSearchAi(this)
             val searchIntent = AiSearchDispatcher.createSearchIntent(this, defaultEngine, trimmedQuery)
             safeStartActivity(searchIntent)
+            return
+        }
+
+        // Empty query (tap on search capsule or swipe without query): open default engine
+        if (defaultEngine != WidgetPrefs.SEARCH_ENGINE_GOOGLE) {
+            val emptyIntent = AiSearchDispatcher.createSearchIntent(this, defaultEngine, "")
+            safeStartActivity(emptyIntent)
             return
         }
 

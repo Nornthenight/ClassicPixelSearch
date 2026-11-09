@@ -97,4 +97,18 @@ class AppSearchMatcherTest {
     fun `non matching query returns null`() {
         assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "ZzzNonExistent"))
     }
+
+    @Test
+    fun `multi-word search queries and questions do not falsely match apps`() {
+        // Multi-word queries with spaces must return null so they route to AI Search
+        assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "погода в москве"))
+        assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "how to bake cookies"))
+        assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "tell me a joke"))
+    }
+
+    @Test
+    fun `queries with question mark return null for AI routing`() {
+        assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "what is this?"))
+        assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "chrome?"))
+    }
 }

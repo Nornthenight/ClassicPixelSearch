@@ -34,6 +34,9 @@ object AppSearchMatcher {
         val query = rawQuery?.trim()?.lowercase() ?: return null
         if (query.isEmpty() || candidates.isEmpty()) return null
 
+        val hasSpaces = query.contains(' ')
+        val isExplicitQuestion = query.endsWith('?') || query.contains('?')
+
         val queryPhonetic = query.map { LATIN_TO_CYRILLIC_PHONETIC[it] ?: it.toString() }.joinToString("")
         val queryJcuken = query.map { QWERTY_TO_JCUKEN[it] ?: it }.joinToString("")
 
@@ -47,12 +50,22 @@ object AppSearchMatcher {
         // 2. Exact match on package name
         candidates.firstOrNull { it.packageName.equals(query, ignoreCase = true) }?.let { return it }
 
+        // Explicit questions or questions with '?' should never be intercepted by loose/prefix matching
+        if (isExplicitQuestion) {
+            return null
+        }
+
         // 3. Prefix match on app label (e.g. "Tele" -> "Telegram", "Ав" -> "Авито")
         for (q in queryVariants) {
             val prefixMatches = candidates.filter { it.label.startsWith(q, ignoreCase = true) }
             if (prefixMatches.isNotEmpty()) {
                 return prefixMatches.minByOrNull { it.label.length }
             }
+        }
+
+        // Multi-word queries with spaces must not be intercepted by single-word or segment matching
+        if (hasSpaces) {
+            return null
         }
 
         // 4. Word-boundary prefix match (e.g. "Play" -> "Google Play Store", "RU" -> "PROFI.RU")
@@ -79,9 +92,9 @@ object AppSearchMatcher {
             }
         }
 
-        // 6. Contains match on app label
+        // 6. Contains match on app label (restricted to >= 3 chars for single words)
         for (q in queryVariants) {
-            if (q.length >= 2) {
+            if (q.length >= 3) {
                 val containsMatches = candidates.filter { it.label.contains(q, ignoreCase = true) }
                 if (containsMatches.isNotEmpty()) {
                     return containsMatches.minByOrNull { it.label.length }
