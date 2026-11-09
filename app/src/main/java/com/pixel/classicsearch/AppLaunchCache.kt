@@ -70,7 +70,10 @@ object AppLaunchCache {
             val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
             val list = resolveInfos
                 .mapNotNull { info ->
-                    val pkg = info.activityInfo?.packageName ?: return@mapNotNull null
+                    val actInfo = info.activityInfo ?: return@mapNotNull null
+                    val appInfo = actInfo.applicationInfo ?: return@mapNotNull null
+                    if (!actInfo.enabled || !appInfo.enabled) return@mapNotNull null
+                    val pkg = actInfo.packageName ?: return@mapNotNull null
                     val label = info.loadLabel(pm)?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: pkg
                     AppSearchCandidate(packageName = pkg, label = label)
                 }

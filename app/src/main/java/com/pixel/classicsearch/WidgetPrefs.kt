@@ -28,6 +28,7 @@ object WidgetPrefs {
 
     // Feature 5: QuickSearch Overlay (v1.5.0-alpha1)
     private const val KEY_QUICK_OVERLAY_ENABLED = "quick_overlay_enabled"
+    private const val KEY_RECENT_APPS = "quick_recent_apps"
 
     // Surface styles
     const val SURFACE_DEEP_RING = 0    // Default: system_accent2_300 frame + system_neutral1_10 inner
@@ -244,6 +245,24 @@ object WidgetPrefs {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_QUICK_OVERLAY_ENABLED, enabled)
+            .apply()
+    }
+
+    fun getRecentApps(context: Context): List<String> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_RECENT_APPS, "") ?: ""
+        return raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    fun recordRecentApp(context: Context, packageName: String) {
+        if (packageName.isBlank()) return
+        val current = getRecentApps(context).toMutableList()
+        current.remove(packageName)
+        current.add(0, packageName)
+        val updated = current.take(5).joinToString(",")
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_RECENT_APPS, updated)
             .apply()
     }
 }

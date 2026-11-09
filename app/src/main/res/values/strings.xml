@@ -18,8 +18,10 @@
     <string name="quick_search_hint_dynamic">Search apps or ask %1$s…</string>
     <string name="quick_calc_copy_hint">Instant Calculator • Tap or press Enter to copy</string>
     <string name="quick_calc_copied">Copied: %1$s</string>
-    <string name="quick_top_app_hint">Top Match • Press Enter ↵ to launch</string>
-    <string name="quick_ask_ai_format">Ask %1$s</string>
+    <string name="quick_top_app_hint">Highlighted • Press Enter ↵ to open</string>
+    <string name="quick_secondary_app_hint">Tap to open or press ▼ to select</string>
+    <string name="quick_recent_apps_title">Quick Launch</string>
+    <string name="quick_ask_ai_format">Search in %1$s</string>
     <string name="option_quick_overlay">QuickSearch Overlay (Alpha)</string>
     <string name="option_quick_overlay_desc">Instant translucent search bar with live app highlight, AI chips, calculator, and !bang commands (!p, !c, !g, !y)</string>
     <string name="btn_test_quick_overlay">Launch QuickSearch Overlay</string>

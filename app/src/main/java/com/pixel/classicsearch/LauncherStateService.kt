@@ -41,6 +41,7 @@ class LauncherStateService : AccessibilityService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var currentEngine: String? = null
     @Volatile private var lastEngineCheckTime: Long = 0L
+    @Volatile private var lastOverlayLaunchTime: Long = 0L
 
     private var themeCustomizationObserver: ContentObserver? = null
     private var colorsChangedListener: WallpaperManager.OnColorsChangedListener? = null
@@ -53,6 +54,7 @@ class LauncherStateService : AccessibilityService() {
 
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                AccessibilityEvent.TYPE_VIEW_CLICKED or
                 AccessibilityEvent.TYPE_VIEW_FOCUSED or
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
@@ -128,6 +130,7 @@ class LauncherStateService : AccessibilityService() {
                 }
                 ensureClassicSearchEngine()
             }
+            AccessibilityEvent.TYPE_VIEW_CLICKED,
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
                 handleSearchInputEvent(event)
@@ -139,9 +142,44 @@ class LauncherStateService : AccessibilityService() {
         val source = try { event.source } catch (_: Exception) { null } ?: return
         try {
             val viewId = source.viewIdResourceName
-            if (viewId == ID_SEARCH_INPUT) {
-                val text = source.text?.toString()?.trim()
-                if (!text.isNullOrEmpty()) {
+            if (viewId == ID_SEARCH_INPUT || viewId == ID_SEARCH_ALL_APPS) {
+                val rawText = source.text?.toString()?.trim() ?: ""
+                val hintText = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    source.hintText?.toString()?.trim() ?: ""
+                } else ""
+                val queryText = if (rawText.isNotEmpty() && rawText != hintText) rawText else ""
+
+                if (WidgetPrefs.isQuickOverlayEnabled(this)) {
+                    val now = SystemClock.elapsedRealtime()
+                    val sinceDismiss = now - QuickSearchActivity.lastDismissRealtimeMs
+                    val sinceLaunch = now - lastOverlayLaunchTime
+                    val isExplicitClickOrText = event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
+                            (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED && queryText.isNotEmpty())
+                    val isFocusAfterCooldown = event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED &&
+                            sinceDismiss > 1500L
+
+                    if (sinceLaunch > 700L && (isExplicitClickOrText || isFocusAfterCooldown)) {
+                        lastOverlayLaunchTime = now
+                        try {
+                            source.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS)
+                        } catch (_: Exception) {}
+                        val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
+                            if (queryText.isNotEmpty()) {
+                                putExtra("query", queryText)
+                            }
+                            addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                        Intent.FLAG_ACTIVITY_NO_ANIMATION
+                            )
+                        }
+                        startActivity(overlayIntent)
+                        return
+                    }
+                }
+
+                if (queryText.isNotEmpty()) {
                     scheduleHighlightFirstResult()
                 }
             }
