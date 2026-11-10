@@ -134,10 +134,14 @@ class LauncherStateService : AccessibilityService() {
         }
     }
 
-    private fun launchQuickOverlayNow(queryText: String) {
+    private fun launchQuickOverlayNow(queryText: String, sourceRect: android.graphics.Rect?) {
         val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
+            putExtra("from_all_apps", true)
             if (queryText.isNotEmpty()) {
                 putExtra("query", queryText)
+            }
+            if (sourceRect != null && !sourceRect.isEmpty) {
+                sourceBounds = sourceRect
             }
             addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -168,6 +172,10 @@ class LauncherStateService : AccessibilityService() {
                     val now = SystemClock.elapsedRealtime()
                     if (now - lastOverlayLaunchTime > 450L) {
                         lastOverlayLaunchTime = now
+                        val rect = android.graphics.Rect()
+                        try {
+                            source.getBoundsInScreen(rect)
+                        } catch (_: Exception) {}
                         try {
                             val clearArgs = android.os.Bundle().apply {
                                 putCharSequence(
@@ -178,7 +186,7 @@ class LauncherStateService : AccessibilityService() {
                             source.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, clearArgs)
                             source.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS)
                         } catch (_: Exception) {}
-                        launchQuickOverlayNow(queryText)
+                        launchQuickOverlayNow(queryText, rect)
                         return
                     }
                 }

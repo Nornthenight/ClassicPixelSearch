@@ -8,6 +8,7 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <!-- Разрешаем видимость пакетов Google, Gemini, Google Lens, Pixel Launcher, AI-ассистентов, браузеров и установленных приложений -->
     <queries>

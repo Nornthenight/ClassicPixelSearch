@@ -11,8 +11,8 @@ android {
         applicationId = "com.pixel.classicsearch"
         minSdk = 31 // Android 12+ (Material You / Monet dynamic colors)
         targetSdk = 35
-        versionCode = 25
-        versionName = "1.5.0-alpha4"
+        versionCode = 26
+        versionName = "1.5.0-alpha5"
     }
 
     buildTypes {

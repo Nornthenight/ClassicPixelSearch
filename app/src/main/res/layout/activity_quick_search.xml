@@ -4,13 +4,16 @@
     android:id="@+id/quick_overlay_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#22000000"
+    android:background="#26000000"
     android:clickable="true"
     android:focusable="true"
     android:fitsSystemWindows="true">
 
-    <!-- Reference #5: Minimalist Icon Dock Morph Container
-         Adaptive gravity: BOTTOM on phones (right above keyboard), CENTER on tablets -->
+    <!-- Reference #5: Dual-Block Frosted Glass Dock Morph Container
+         - When opened from Home Screen Widget: anchored at BOTTOM right above keyboard
+           (order: Deep Chips Pill -> App Icon Dock Pill -> Search Capsule)
+         - When opened from All Apps Drawer: anchored at TOP covering the native search bar
+           (order: Search Capsule -> App Icon Dock Pill -> Deep Chips Pill) -->
     <LinearLayout
         android:id="@+id/quick_panel_container"
         android:layout_width="match_parent"
@@ -23,18 +26,52 @@
         android:gravity="center_horizontal"
         android:orientation="vertical">
 
-        <!-- 1. Upper Minimalist Icon Dock Pill (Hidden on empty query, unfolds on 1st character) -->
+        <!-- Tier 2: Compact Deep Matches & Contacts Frosted Glass Pill
+             (Contacts with Call button, System Settings, App Shortcuts, Google Ecosystem triggers) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_deep_chips"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+            app:cardCornerRadius="30dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutlineVariant"
+            app:strokeWidth="1.2dp">
+
+            <HorizontalScrollView
+                android:id="@+id/scroll_deep_chips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/row_deep_chips"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp" />
+            </HorizontalScrollView>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Tier 1: Primary Minimalist Icon Dock Frosted Glass Pill
+             (Matched Apps + 1 Default Search/AI circle) -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_icon_dock"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="10dp"
             android:visibility="gone"
             app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
             app:cardCornerRadius="44dp"
-            app:cardElevation="8dp"
+            app:cardElevation="0dp"
             app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
+            app:strokeWidth="1.2dp">
 
             <HorizontalScrollView
                 android:id="@+id/scroll_icon_dock"
@@ -55,7 +92,7 @@
             </HorizontalScrollView>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 2. Exact 1:1 Replica of Home Screen Search Widget Capsule -->
+        <!-- Exact 1:1 Replica of Home Screen Search Widget Capsule -->
         <LinearLayout
             android:id="@+id/quick_outer_ring"
             android:layout_width="match_parent"

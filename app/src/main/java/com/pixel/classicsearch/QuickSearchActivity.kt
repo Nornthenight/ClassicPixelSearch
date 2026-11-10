@@ -1,5 +1,6 @@
 package com.pixel.classicsearch
 
+import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
@@ -7,6 +8,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -36,45 +39,57 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
+import androidx.core.app.ActivityCompat
+import androidx.core.graphics.ColorUtils
 import com.google.android.material.card.MaterialCardView
 import kotlin.math.roundToInt
 
 /**
- * Pixel QuickSearch Overlay — Reference #5: Minimalist Icon Dock Morph.
+ * Pixel QuickSearch Overlay — Reference #5: Dual-Block Frosted Glass Dock Morph.
  *
- * Design principles:
- * 1. Empty state (""): shows ONLY the 1:1 replica of the user's home screen search widget
- *    (concentric double ring + Google G + Mic + Middle button + right AI Circle) over a
- *    44dp hardware-blurred desktop backdrop. Zero extra boxes or cards.
- * 2. Typing state (1+ chars): right widget buttons fold into a clean "✕" button while a single
- *    oval Icon Dock Pill unfolds above the search bar.
- * 3. Extended Deep Search: inside the Icon Dock Pill, matched apps, Android System Settings
- *    sub-pages, App Shortcuts/Functions (with corner app badge), and Google Ecosystem actions
- *    (YouTube, Maps, Translate, Play Store, AI/Search) seamlessly morph into an expanded
- *    active capsule ([Icon + Title / Subtitle + Enter ↵]) with a 2.6dp colorPrimary outline.
- * 4. Smooth Reverse Morph on Dismiss: when closing (Back gesture, Back key, or outside tap),
- *    the upper Icon Dock Pill folds down and the search capsule morphs smoothly back into the
- *    exact home screen widget coordinates (intent.sourceBounds) with zero sideways/center window slide.
+ * Key architecture:
+ * 1. Frosted Acrylic Glass (Google Android 15 SystemUI style):
+ *    - 56dp hardware windowBlurBehind + 36dp window.setBackgroundBlurRadius
+ *    - Semi-translucent frosted glass pills (68% surface alpha + 38% specular highlight border)
+ * 2. Context-Aware Placement & Ordering:
+ *    - From Home Screen Widget: search capsule sits at BOTTOM right above Gboard;
+ *      Tier 1 (Apps Dock) unfolds directly above the capsule, Tier 2 (Deep/Contacts Chips) above Tier 1.
+ *    - From App Drawer (All Apps): search capsule sits at TOP directly covering the native All Apps
+ *      search bar (`sourceBounds.top`); Tier 1 (Apps Dock) unfolds BELOW the capsule, Tier 2 below Tier 1.
+ * 3. Zero Unmatched Clutter:
+ *    - Tier 1 shows ONLY matched apps + 1 single default Search/AI icon.
+ *    - Tier 2 appears ONLY when there are real matches in Contacts, Android Settings, App Shortcuts,
+ *      or explicit Google Ecosystem triggers.
  */
 class QuickSearchActivity : AppCompatActivity() {
 
     companion object {
         @Volatile
         var lastDismissRealtimeMs: Long = 0L
+        private const val REQ_READ_CONTACTS = 701
     }
 
-    private sealed class DockItem {
-        data class Calculator(val expression: String, val result: String) : DockItem()
-        data class DeepAction(val candidate: DeepSearchCandidate) : DockItem()
-        data class App(val candidate: AppSearchCandidate) : DockItem()
-        data class Bang(val route: BangRoute) : DockItem()
-        data class SearchEngine(val engineCode: String, val label: String, val isSparkleIcon: Boolean) : DockItem()
-        data class EcosystemQuery(val candidate: DeepSearchCandidate) : DockItem()
+    private sealed class SelectableTarget {
+        // Tier 1: Primary Icon Dock items
+        data class Calculator(val expression: String, val result: String) : SelectableTarget()
+        data class TriggerAction(val candidate: DeepSearchCandidate) : SelectableTarget()
+        data class App(val candidate: AppSearchCandidate) : SelectableTarget()
+        data class Bang(val route: BangRoute) : SelectableTarget()
+        data class SearchEngine(val engineCode: String, val label: String, val isSparkleIcon: Boolean) : SelectableTarget()
+
+        // Tier 2: Compact Deep & Contact Chips
+        data class Contact(val candidate: ContactCandidate) : SelectableTarget()
+        data class DeepChip(val candidate: DeepSearchCandidate) : SelectableTarget()
+        object RequestContactsPermission : SelectableTarget()
     }
 
     private lateinit var overlayRoot: View
     private lateinit var panelContainer: LinearLayout
+
+    private lateinit var cardDeepChips: MaterialCardView
+    private lateinit var scrollDeepChips: HorizontalScrollView
+    private lateinit var rowDeepChips: LinearLayout
+
     private lateinit var cardIconDock: MaterialCardView
     private lateinit var scrollIconDock: HorizontalScrollView
     private lateinit var rowDockItems: LinearLayout
@@ -90,11 +105,16 @@ class QuickSearchActivity : AppCompatActivity() {
     private lateinit var aiCircleWrapper: FrameLayout
     private lateinit var btnAi: ImageView
 
-    private val currentDockItems = mutableListOf<DockItem>()
-    private var selectedIndex: Int = 0
-    private var wasDockVisible: Boolean = false
+    private val tier1Items = mutableListOf<SelectableTarget>()
+    private val tier2Items = mutableListOf<SelectableTarget>()
+    private val allSelectableTargets = mutableListOf<SelectableTarget>()
+    private var selectedGlobalIndex: Int = 0
+
+    private var wasTier1Visible: Boolean = false
+    private var wasTier2Visible: Boolean = false
     private var isClosingAnimating: Boolean = false
-    private var activeWidgetBounds: Rect? = null
+    private var isFromAllApps: Boolean = false
+    private var activeSourceBounds: Rect? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         suppressTransitions()
@@ -103,17 +123,13 @@ class QuickSearchActivity : AppCompatActivity() {
         setContentView(R.layout.activity_quick_search)
 
         AppLaunchCache.warmUpAsync(this)
+        ContactSearchHelper.warmUpAsync(this)
 
         bindViews()
-        applyUserWidgetStyling()
         setupListeners()
         setupBackNavigation()
 
-        captureWidgetSourceBounds(intent)
-        if (intent?.getBooleanExtra("from_widget", false) == true) {
-            performHaptic(outerRing)
-        }
-        applyIncomingIntent(intent)
+        handleLaunchConfiguration(intent)
         playSeamlessEntrance()
         focusSearchInput()
     }
@@ -134,12 +150,12 @@ class QuickSearchActivity : AppCompatActivity() {
                     WindowManager.LayoutParams.FLAG_DIM_BEHIND
         )
         window.attributes = window.attributes.apply {
-            blurBehindRadius = (44 * density).roundToInt()
-            dimAmount = 0.30f
+            blurBehindRadius = (56 * density).roundToInt()
+            dimAmount = 0.25f
             windowAnimations = R.style.Style_NoWindowAnimation
         }
         try {
-            window.setBackgroundBlurRadius((28 * density).roundToInt())
+            window.setBackgroundBlurRadius((36 * density).roundToInt())
         } catch (_: Exception) {}
     }
 
@@ -150,30 +166,38 @@ class QuickSearchActivity : AppCompatActivity() {
 
         isClosingAnimating = false
         resetMorphTransforms()
-        applyUserWidgetStyling()
-        captureWidgetSourceBounds(intent)
-        if (intent.getBooleanExtra("from_widget", false)) {
-            performHaptic(outerRing)
-        }
-        applyIncomingIntent(intent)
+        ContactSearchHelper.warmUpAsync(this)
+        handleLaunchConfiguration(intent)
         playSeamlessEntrance()
         focusSearchInput()
     }
 
-    private fun captureWidgetSourceBounds(incoming: Intent?) {
+    private fun handleLaunchConfiguration(incoming: Intent?) {
+        isFromAllApps = incoming?.getBooleanExtra("from_all_apps", false) == true
         val bounds = incoming?.sourceBounds
         if (bounds != null && !bounds.isEmpty) {
-            activeWidgetBounds = Rect(bounds)
-            WidgetPrefs.saveWidgetBounds(this, bounds)
+            activeSourceBounds = Rect(bounds)
+            if (!isFromAllApps) {
+                WidgetPrefs.saveWidgetBounds(this, bounds)
+            }
+        } else if (!isFromAllApps) {
+            activeSourceBounds = WidgetPrefs.getSavedWidgetBounds(this)
         } else {
-            activeWidgetBounds = WidgetPrefs.getSavedWidgetBounds(this)
+            activeSourceBounds = null
         }
+
+        applyFrostedGlassAndPlacement()
+        if (incoming?.getBooleanExtra("from_widget", false) == true) {
+            performHaptic(outerRing)
+        }
+        applyIncomingIntent(incoming)
     }
 
     private fun resetMorphTransforms() {
         panelContainer.animate().cancel()
         outerRing.animate().cancel()
         cardIconDock.animate().cancel()
+        cardDeepChips.animate().cancel()
 
         panelContainer.alpha = 1f
         panelContainer.translationX = 0f
@@ -191,6 +215,11 @@ class QuickSearchActivity : AppCompatActivity() {
         cardIconDock.translationY = 0f
         cardIconDock.scaleX = 1f
         cardIconDock.scaleY = 1f
+
+        cardDeepChips.alpha = 1f
+        cardDeepChips.translationY = 0f
+        cardDeepChips.scaleX = 1f
+        cardDeepChips.scaleY = 1f
     }
 
     private fun playSeamlessEntrance() {
@@ -198,15 +227,14 @@ class QuickSearchActivity : AppCompatActivity() {
         resetMorphTransforms()
         val density = resources.displayMetrics.density
 
-        // Restore full window blur & dim on entrance
         window.attributes = window.attributes.apply {
-            blurBehindRadius = (44 * density).roundToInt()
-            dimAmount = 0.30f
+            blurBehindRadius = (56 * density).roundToInt()
+            dimAmount = 0.25f
             windowAnimations = R.style.Style_NoWindowAnimation
         }
 
-        val targetBounds = activeWidgetBounds
-        if (targetBounds != null && !targetBounds.isEmpty) {
+        val targetBounds = activeSourceBounds
+        if (!isFromAllApps && targetBounds != null && !targetBounds.isEmpty) {
             outerRing.post {
                 if (isClosingAnimating) return@post
                 val loc = IntArray(2)
@@ -238,17 +266,16 @@ class QuickSearchActivity : AppCompatActivity() {
                     .start()
             }
         } else {
-            panelContainer.translationY = 12f * density
-            panelContainer.scaleX = 0.96f
-            panelContainer.scaleY = 0.96f
-            panelContainer.alpha = 0.80f
-            panelContainer.animate()
-                .translationY(0f)
+            // In All Apps mode, the search capsule appears immediately right over the native search bar
+            outerRing.alpha = 0.92f
+            outerRing.scaleX = 0.985f
+            outerRing.scaleY = 0.985f
+            outerRing.animate()
+                .alpha(1f)
                 .scaleX(1f)
                 .scaleY(1f)
-                .alpha(1f)
-                .setDuration(120L)
-                .setInterpolator(OvershootInterpolator(1.05f))
+                .setDuration(95L)
+                .setInterpolator(DecelerateInterpolator())
                 .start()
         }
     }
@@ -282,6 +309,11 @@ class QuickSearchActivity : AppCompatActivity() {
     private fun bindViews() {
         overlayRoot = findViewById(R.id.quick_overlay_root)
         panelContainer = findViewById(R.id.quick_panel_container)
+
+        cardDeepChips = findViewById(R.id.card_deep_chips)
+        scrollDeepChips = findViewById(R.id.scroll_deep_chips)
+        rowDeepChips = findViewById(R.id.row_deep_chips)
+
         cardIconDock = findViewById(R.id.card_icon_dock)
         scrollIconDock = findViewById(R.id.scroll_icon_dock)
         rowDockItems = findViewById(R.id.row_dock_items)
@@ -307,10 +339,15 @@ class QuickSearchActivity : AppCompatActivity() {
     }
 
     /**
-     * Styles the search capsule as a 1:1 visual clone of the user's home screen widget,
-     * and sets adaptive screen placement (bottom above keyboard on phones, centered on tablets).
+     * Styles the search capsule & floating result pills with Google Android 15 Frosted Acrylic Glass,
+     * and configures context-aware placement:
+     * - Home Screen (`!isFromAllApps`): search bar anchored at BOTTOM right above keyboard;
+     *   order = [cardDeepChips (top), cardIconDock (middle), outerRing (bottom)].
+     * - All Apps Drawer (`isFromAllApps`): search bar anchored at TOP covering the native All Apps
+     *   search bar (`activeSourceBounds.top`);
+     *   order = [outerRing (top), cardIconDock (middle), cardDeepChips (bottom)].
      */
-    private fun applyUserWidgetStyling() {
+    private fun applyFrostedGlassAndPlacement() {
         val density = resources.displayMetrics.density
         val surfaceStyle = WidgetPrefs.getSurfaceStyle(this)
         val iconStyle = WidgetPrefs.getIconStyle(this)
@@ -322,9 +359,43 @@ class QuickSearchActivity : AppCompatActivity() {
         val innerHeightPx = (innerHeightDp * density).roundToInt()
         val innerRadiusPx = (radiusDp - gapDp).coerceIn(4, innerHeightDp / 2) * density
 
-        outerRing.background = WidgetDrawableRenderer.createOuterDrawable(this, outerRadiusPx, surfaceStyle)
-        innerPill.background = WidgetDrawableRenderer.createInnerDrawable(this, innerRadiusPx, surfaceStyle)
-        aiCircleWrapper.background = WidgetDrawableRenderer.createInnerDrawable(this, innerRadiusPx, surfaceStyle)
+        // Frosted glass outer & inner drawables for the search capsule (78% translucent glass + specular stroke)
+        val baseOuterColor = WidgetDrawableRenderer.getOuterColor(this, surfaceStyle)
+        val baseInnerColor = WidgetDrawableRenderer.getInnerColor(this, surfaceStyle)
+        val colorOnSurface = resolveThemeColor(com.google.android.material.R.attr.colorOnSurface)
+        val glassSpecularStroke = ColorUtils.setAlphaComponent(colorOnSurface, 58) // ~23% specular edge highlight
+
+        outerRing.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = outerRadiusPx
+            setColor(ColorUtils.setAlphaComponent(baseOuterColor, 200))
+            setStroke((1.1f * density).roundToInt().coerceAtLeast(1), glassSpecularStroke)
+        }
+        innerPill.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = innerRadiusPx
+            setColor(ColorUtils.setAlphaComponent(baseInnerColor, 224))
+            setStroke((1f * density).roundToInt().coerceAtLeast(1), glassSpecularStroke)
+        }
+        aiCircleWrapper.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = innerRadiusPx
+            setColor(ColorUtils.setAlphaComponent(baseInnerColor, 224))
+            setStroke((1f * density).roundToInt().coerceAtLeast(1), glassSpecularStroke)
+        }
+
+        // Frosted Acrylic Glass styling for Tier 1 (cardIconDock) and Tier 2 (cardDeepChips)
+        val colorSurfaceHigh = resolveThemeColor(com.google.android.material.R.attr.colorSurfaceContainerHigh)
+        val frostedPillFill = ColorUtils.setAlphaComponent(colorSurfaceHigh, 178) // 70% frosted glass translucency
+        val frostedPillStroke = ColorUtils.setAlphaComponent(colorOnSurface, 72) // 28% specular glass border
+
+        cardIconDock.setCardBackgroundColor(frostedPillFill)
+        cardIconDock.strokeColor = frostedPillStroke
+        cardIconDock.strokeWidth = (1.2f * density).roundToInt().coerceAtLeast(1)
+
+        cardDeepChips.setCardBackgroundColor(frostedPillFill)
+        cardDeepChips.strokeColor = frostedPillStroke
+        cardDeepChips.strokeWidth = (1.2f * density).roundToInt().coerceAtLeast(1)
 
         outerRing.setPadding(gapPx, gapPx, gapPx, gapPx)
         ringGapSpacer.layoutParams = ringGapSpacer.layoutParams.apply {
@@ -357,21 +428,76 @@ class QuickSearchActivity : AppCompatActivity() {
         )
         WidgetDrawableRenderer.applyActionIconToView(btnAi, aiIcon)
 
-        // Adaptive placement:
-        // - Smartphones (< 600dp): anchored at bottom right above the keyboard
-        // - Tablets (>= 600dp): centered in the available workspace
-        val screenWidthDp = resources.configuration.screenWidthDp
+        // Context-Aware Ordering & Placement:
+        // Reorder child views inside panelContainer so the search capsule is at the bottom when
+        // launched from the home screen, and at the top (covering the All Apps search bar) when
+        // launched from the App Drawer.
+        panelContainer.removeAllViews()
         val lp = panelContainer.layoutParams as FrameLayout.LayoutParams
-        if (screenWidthDp >= 600) {
-            lp.width = (560 * density).roundToInt()
-            lp.gravity = Gravity.CENTER
+        val screenWidthDp = resources.configuration.screenWidthDp
+        lp.width = if (screenWidthDp >= 600) {
+            (580 * density).roundToInt()
+        } else {
+            FrameLayout.LayoutParams.MATCH_PARENT
+        }
+
+        if (isFromAllApps) {
+            // Top-anchored over the All Apps search bar; results unfold BELOW the search capsule
+            val dockLp = (cardIconDock.layoutParams as LinearLayout.LayoutParams).apply {
+                topMargin = (10 * density).roundToInt()
+                bottomMargin = 0
+            }
+            cardIconDock.layoutParams = dockLp
+
+            val deepLp = (cardDeepChips.layoutParams as LinearLayout.LayoutParams).apply {
+                topMargin = (8 * density).roundToInt()
+                bottomMargin = 0
+            }
+            cardDeepChips.layoutParams = deepLp
+
+            panelContainer.addView(outerRing)
+            panelContainer.addView(cardIconDock)
+            panelContainer.addView(cardDeepChips)
+
+            lp.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            val statusBarOffset = getStatusBarHeightPx()
+            val bounds = activeSourceBounds
+            val rawTopPx = if (bounds != null && !bounds.isEmpty) {
+                (bounds.top - statusBarOffset).coerceAtLeast((6 * density).roundToInt())
+            } else {
+                (12 * density).roundToInt()
+            }
+            lp.topMargin = rawTopPx
             lp.bottomMargin = 0
         } else {
-            lp.width = FrameLayout.LayoutParams.MATCH_PARENT
+            // Home Screen Widget launch: anchored at BOTTOM right above the keyboard;
+            // results unfold ABOVE the search capsule
+            val deepLp = (cardDeepChips.layoutParams as LinearLayout.LayoutParams).apply {
+                topMargin = 0
+                bottomMargin = (8 * density).roundToInt()
+            }
+            cardDeepChips.layoutParams = deepLp
+
+            val dockLp = (cardIconDock.layoutParams as LinearLayout.LayoutParams).apply {
+                topMargin = 0
+                bottomMargin = (10 * density).roundToInt()
+            }
+            cardIconDock.layoutParams = dockLp
+
+            panelContainer.addView(cardDeepChips)
+            panelContainer.addView(cardIconDock)
+            panelContainer.addView(outerRing)
+
             lp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            lp.topMargin = 0
             lp.bottomMargin = (14 * density).roundToInt()
         }
         panelContainer.layoutParams = lp
+    }
+
+    private fun getStatusBarHeightPx(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
     }
 
     private fun updateRightCapsuleButtons(isEmpty: Boolean) {
@@ -397,6 +523,7 @@ class QuickSearchActivity : AppCompatActivity() {
 
         panelContainer.setOnClickListener { /* consume */ }
         cardIconDock.setOnClickListener { /* consume */ }
+        cardDeepChips.setOnClickListener { /* consume */ }
         outerRing.setOnClickListener { editSearch.requestFocus() }
 
         imgLogo.setOnClickListener { v ->
@@ -464,7 +591,7 @@ class QuickSearchActivity : AppCompatActivity() {
                 closeOverlay(animateToWidget = true)
                 return true
             }
-            if (currentDockItems.isNotEmpty()) {
+            if (allSelectableTargets.isNotEmpty()) {
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_DPAD_DOWN,
                     KeyEvent.KEYCODE_DPAD_RIGHT,
@@ -488,192 +615,255 @@ class QuickSearchActivity : AppCompatActivity() {
     }
 
     private fun moveSelection(delta: Int) {
-        if (currentDockItems.isEmpty()) return
-        selectedIndex = (selectedIndex + delta + currentDockItems.size) % currentDockItems.size
+        if (allSelectableTargets.isEmpty()) return
+        selectedGlobalIndex = (selectedGlobalIndex + delta + allSelectableTargets.size) % allSelectableTargets.size
         performHaptic(editSearch)
-        renderIconDockItems(animateMorph = true)
+        renderDualFrostedBlocks(animateMorph = true)
     }
 
     /**
-     * Evaluates the live query and populates the Minimalist Icon Dock Pill:
-     * 1. Parameterized deep trigger ("перевод hello", "таймер 10", "карта аптека", "маркет shazam", "ютуб lofi")
-     * 2. Math calculator expression ("245*18")
-     * 3. Installed Applications (via AppLaunchCache + AppSearchMatcher)
-     * 4. Deep System Settings, App Shortcuts/Functions, and Google Ecosystem items (via DeepSearchCatalog)
-     * 5. Right-side AI / Search engines + Google Ecosystem live-query buttons (YouTube, Maps, Translate, Play Store)
+     * Evaluates the live query into the Compact Dual-Block structure with ZERO unmatched clutter:
+     * - Tier 1 (Primary Icon Dock):
+     *   - Parameterized command trigger OR Calculator OR Matched Apps (up to 4)
+     *   - + ONLY 1 single default Search/AI icon on the right (never unmatched ecosystem icons!)
+     * - Tier 2 (Compact Deep & Contact Chips):
+     *   - Real device Contacts matching the query (with direct 📞 Call button)
+     *   - Matched Android System Settings sub-pages (`⚙`) & App Functions (`⚡`)
+     *   - Hidden completely if there are 0 matches in Tier 2!
      */
     private fun evaluateLiveQuery(rawQuery: String) {
         val trimmed = rawQuery.trim()
-        currentDockItems.clear()
-        selectedIndex = 0
+        tier1Items.clear()
+        tier2Items.clear()
+        allSelectableTargets.clear()
+        selectedGlobalIndex = 0
 
         if (trimmed.isEmpty()) {
-            wasDockVisible = false
+            wasTier1Visible = false
+            wasTier2Visible = false
             cardIconDock.visibility = View.GONE
+            cardDeepChips.visibility = View.GONE
             rowDockItems.removeAllViews()
+            rowDeepChips.removeAllViews()
             return
         }
 
-        // 1. Check !bang command
         val bang = QuickCalculator.parseBangCommand(trimmed)
-
-        // 2. Check parameterized command trigger ("перевод ...", "карта ...", "таймер 10", "будильник 07:30")
         val paramTrigger = if (bang == null) {
             DeepSearchCatalog.resolveParameterizedTrigger(this, trimmed)
         } else null
-        if (paramTrigger != null) {
-            currentDockItems.add(DockItem.DeepAction(paramTrigger))
-        }
-
-        // 3. Check math calculator
         val mathRes = if (bang == null && paramTrigger == null) QuickCalculator.evaluate(trimmed) else null
+
+        // --- TIER 1: Primary App Icon Dock + 1 Default Search/AI Target ---
+        if (paramTrigger != null) {
+            tier1Items.add(SelectableTarget.TriggerAction(paramTrigger))
+        }
         if (mathRes != null) {
-            currentDockItems.add(DockItem.Calculator(trimmed, mathRes))
+            tier1Items.add(SelectableTarget.Calculator(trimmed, mathRes))
         }
 
-        // 4. Match installed applications via AppLaunchCache + AppSearchMatcher
-        val candidates = AppLaunchCache.getCandidates(this)
+        val appCandidates = AppLaunchCache.getCandidates(this)
         val appMatches = if (bang == null && paramTrigger == null) {
-            AppSearchMatcher.findMatches(candidates, trimmed, limit = 3)
+            AppSearchMatcher.findMatches(appCandidates, trimmed, limit = 4)
         } else {
             emptyList()
         }
         for (app in appMatches) {
-            currentDockItems.add(DockItem.App(app))
+            tier1Items.add(SelectableTarget.App(app))
         }
 
-        // 5. Match deep Android Settings, App Functions/Shortcuts, and Google Ecosystem tools
-        val deepMatches = if (bang == null && paramTrigger == null) {
-            DeepSearchCatalog.findDeepMatches(this, trimmed, limit = 3)
-        } else {
-            emptyList()
-        }
-        for (deep in deepMatches) {
-            // Avoid duplicating an app that is already the exact same package without a specific sub-action
-            currentDockItems.add(DockItem.DeepAction(deep))
-        }
-
-        // 6. Right-side Search, AI & Google Ecosystem query targets inside the dock
+        // Add ONLY 1 single default Search/AI item at the end of Tier 1 (zero unmatched icon clutter!)
         if (bang != null) {
-            currentDockItems.add(DockItem.Bang(bang))
+            tier1Items.add(SelectableTarget.Bang(bang))
         } else {
             val defaultEngine = WidgetPrefs.getDefaultSearchAi(this)
-            if (defaultEngine == WidgetPrefs.SEARCH_ENGINE_GOOGLE) {
-                currentDockItems.add(
-                    DockItem.SearchEngine(
-                        WidgetPrefs.SEARCH_ENGINE_GOOGLE,
-                        getEngineDisplayName(WidgetPrefs.SEARCH_ENGINE_GOOGLE),
-                        isSparkleIcon = false
-                    )
+            val isSparkle = defaultEngine != WidgetPrefs.SEARCH_ENGINE_GOOGLE
+            tier1Items.add(
+                SelectableTarget.SearchEngine(
+                    engineCode = defaultEngine,
+                    label = getEngineDisplayName(defaultEngine),
+                    isSparkleIcon = isSparkle
                 )
-                currentDockItems.add(
-                    DockItem.SearchEngine(
-                        WidgetPrefs.SEARCH_ENGINE_AI_MODE,
-                        getEngineDisplayName(WidgetPrefs.SEARCH_ENGINE_AI_MODE),
-                        isSparkleIcon = true
-                    )
-                )
-            } else {
-                currentDockItems.add(
-                    DockItem.SearchEngine(
-                        defaultEngine,
-                        getEngineDisplayName(defaultEngine),
-                        isSparkleIcon = true
-                    )
-                )
-                currentDockItems.add(
-                    DockItem.SearchEngine(
-                        WidgetPrefs.SEARCH_ENGINE_GOOGLE,
-                        getEngineDisplayName(WidgetPrefs.SEARCH_ENGINE_GOOGLE),
-                        isSparkleIcon = false
-                    )
-                )
+            )
+        }
+
+        // --- TIER 2: Compact Contacts & Deep Settings/App-Functions Chips ---
+        if (bang == null && paramTrigger == null) {
+            // 1. Live Contacts search
+            if (ContactSearchHelper.hasContactsPermission(this)) {
+                val matchedContacts = ContactSearchHelper.findMatchingContacts(this, trimmed, limit = 3)
+                for (c in matchedContacts) {
+                    tier2Items.add(SelectableTarget.Contact(c))
+                }
+            } else if (shouldOfferContactsPermissionChip(trimmed, appMatches.isEmpty())) {
+                tier2Items.add(SelectableTarget.RequestContactsPermission)
             }
 
-            // Append Google Ecosystem live-query targets (YouTube, Maps, Translate, Play Store)
-            for (ecoTarget in DeepSearchCatalog.getEcosystemQueryTargets(trimmed)) {
-                currentDockItems.add(DockItem.EcosystemQuery(ecoTarget))
+            // 2. Deep Android Settings & App Shortcuts/Functions (excluding generic ecosystem clutter)
+            val deepMatches = DeepSearchCatalog.findDeepMatches(this, trimmed, limit = 3)
+            for (deep in deepMatches) {
+                tier2Items.add(SelectableTarget.DeepChip(deep))
             }
         }
 
-        val animateUnfold = !wasDockVisible
-        wasDockVisible = true
+        // Build unified Tab/Arrow navigation order:
+        // If Tier 1 has real matches (Apps/Calc/Trigger), Tier 1 comes first;
+        // if Tier 1 has 0 apps but Tier 2 has a matched Contact or Setting, select the first Tier 2 match first!
+        val hasTier1DeviceMatches = tier1Items.any {
+            it is SelectableTarget.App || it is SelectableTarget.Calculator || it is SelectableTarget.TriggerAction
+        }
+        val hasTier2RealMatches = tier2Items.any {
+            it is SelectableTarget.Contact || it is SelectableTarget.DeepChip
+        }
+
+        allSelectableTargets.addAll(tier1Items)
+        allSelectableTargets.addAll(tier2Items)
+
+        selectedGlobalIndex = if (!hasTier1DeviceMatches && hasTier2RealMatches) {
+            tier1Items.size // Highlight the matched Contact or Setting immediately for Enter ↵!
+        } else {
+            0
+        }
+
+        val density = resources.displayMetrics.density
+        val slideDir = if (isFromAllApps) -1f else 1f
+
+        // Show & animate Tier 1
+        val animateTier1 = !wasTier1Visible
+        wasTier1Visible = true
         cardIconDock.visibility = View.VISIBLE
-        if (animateUnfold) {
-            val density = resources.displayMetrics.density
-            cardIconDock.translationY = 10f * density
-            cardIconDock.scaleX = 0.92f
-            cardIconDock.scaleY = 0.92f
+        if (animateTier1) {
+            cardIconDock.translationY = 8f * density * slideDir
+            cardIconDock.scaleX = 0.94f
+            cardIconDock.scaleY = 0.94f
             cardIconDock.alpha = 0f
             cardIconDock.animate()
                 .translationY(0f)
                 .scaleX(1f)
                 .scaleY(1f)
                 .alpha(1f)
-                .setDuration(140L)
-                .setInterpolator(OvershootInterpolator(1.25f))
+                .setDuration(130L)
+                .setInterpolator(OvershootInterpolator(1.15f))
                 .start()
         }
 
-        renderIconDockItems(animateMorph = false)
+        // Show & animate Tier 2 ONLY when non-empty
+        if (tier2Items.isNotEmpty()) {
+            val animateTier2 = !wasTier2Visible
+            wasTier2Visible = true
+            cardDeepChips.visibility = View.VISIBLE
+            if (animateTier2) {
+                cardDeepChips.translationY = 8f * density * slideDir
+                cardDeepChips.scaleX = 0.94f
+                cardDeepChips.scaleY = 0.94f
+                cardDeepChips.alpha = 0f
+                cardDeepChips.animate()
+                    .translationY(0f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .alpha(1f)
+                    .setDuration(140L)
+                    .setInterpolator(OvershootInterpolator(1.15f))
+                    .start()
+            }
+        } else {
+            wasTier2Visible = false
+            cardDeepChips.visibility = View.GONE
+            rowDeepChips.removeAllViews()
+        }
+
+        renderDualFrostedBlocks(animateMorph = false)
+    }
+
+    private fun shouldOfferContactsPermissionChip(query: String, noAppsMatched: Boolean): Boolean {
+        val lower = query.lowercase()
+        val contactKeywords = listOf("контакт", "телефон", "позвон", "номер", "contact", "call", "мама", "папа")
+        if (contactKeywords.any { lower.startsWith(it) || it.startsWith(lower) }) return true
+        // Also offer when the user types a 3+ letter name that doesn't match any installed app
+        return noAppsMatched && query.length >= 3 && query.all { it.isLetter() }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_READ_CONTACTS &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED
+        ) {
+            ContactSearchHelper.invalidateCache()
+            ContactSearchHelper.warmUpAsync(this)
+            val currentQuery = editSearch.text?.toString() ?: ""
+            editSearch.postDelayed({
+                evaluateLiveQuery(currentQuery)
+            }, 120L)
+        }
     }
 
     /**
-     * Renders the items inside the Minimalist Icon Dock Pill:
-     * - The item at [selectedIndex] morphs into an expanded capsule ([Icon + Title / Subtitle + Enter ↵])
-     *   with a 2.6dp colorPrimary outline and colorSecondaryContainer fill.
-     * - All other items render as clean 48dp circular icons (with optional corner badge for deep actions).
+     * Renders both Frosted Glass tiers:
+     * - Tier 1 (`rowDockItems`): App icons + 1 Search/AI icon, where the selected item expands
+     *   into `[Icon + Title + Enter ↵]` with a `2.6dp colorPrimary` outline.
+     * - Tier 2 (`rowDeepChips`): Compact pill chips for matched Contacts (with separate 📞 Call icon
+     *   on the right) and Deep Settings / App Functions.
      */
-    private fun renderIconDockItems(animateMorph: Boolean) {
+    private fun renderDualFrostedBlocks(animateMorph: Boolean) {
         rowDockItems.removeAllViews()
-        val density = resources.displayMetrics.density
+        rowDeepChips.removeAllViews()
 
+        val density = resources.displayMetrics.density
         val colorPrimary = resolveThemeColor(com.google.android.material.R.attr.colorPrimary)
+        val colorOnPrimary = resolveThemeColor(com.google.android.material.R.attr.colorOnPrimary)
         val colorSecondaryContainer = resolveThemeColor(com.google.android.material.R.attr.colorSecondaryContainer)
         val colorOnSecondaryContainer = resolveThemeColor(com.google.android.material.R.attr.colorOnSecondaryContainer)
         val colorSurfaceHighest = resolveThemeColor(com.google.android.material.R.attr.colorSurfaceContainerHighest)
+        val colorOnSurface = resolveThemeColor(com.google.android.material.R.attr.colorOnSurface)
+        val colorOnSurfaceVariant = resolveThemeColor(com.google.android.material.R.attr.colorOnSurfaceVariant)
         val colorOutlineVariant = resolveThemeColor(com.google.android.material.R.attr.colorOutlineVariant)
 
-        val hasLeftMatchItems = currentDockItems.any {
-            it is DockItem.Calculator || it is DockItem.App || it is DockItem.DeepAction
+        // =====================================================================
+        // RENDER TIER 1: Primary App Icon Dock
+        // =====================================================================
+        val hasLeftAppMatches = tier1Items.any {
+            it is SelectableTarget.App || it is SelectableTarget.Calculator || it is SelectableTarget.TriggerAction
         }
         var dividerInserted = false
-        var activeViewToScroll: View? = null
 
-        for ((index, item) in currentDockItems.withIndex()) {
-            val isRightZoneItem = item is DockItem.SearchEngine ||
-                    item is DockItem.Bang ||
-                    item is DockItem.EcosystemQuery
-            if (hasLeftMatchItems && isRightZoneItem && !dividerInserted) {
+        for ((idx, item) in tier1Items.withIndex()) {
+            val globalIdx = idx
+            val isSelected = (globalIdx == selectedGlobalIndex)
+            val isRightSearch = item is SelectableTarget.SearchEngine || item is SelectableTarget.Bang
+
+            if (hasLeftAppMatches && isRightSearch && !dividerInserted) {
                 dividerInserted = true
                 val divider = View(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         (1.5f * density).roundToInt().coerceAtLeast(1),
-                        (36 * density).roundToInt()
+                        (34 * density).roundToInt()
                     ).apply {
                         marginStart = (10 * density).roundToInt()
                         marginEnd = (4 * density).roundToInt()
                     }
-                    setBackgroundColor(colorOutlineVariant)
+                    setBackgroundColor(ColorUtils.setAlphaComponent(colorOutlineVariant, 160))
                 }
                 rowDockItems.addView(divider)
             }
 
-            val isSelected = (index == selectedIndex)
             if (isSelected) {
-                // Expanded Active Pill with 2.6dp colorPrimary outline ("[Icon + Title / Subtitle • Enter ↵]")
                 val pillCard = MaterialCardView(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
-                        (62 * density).roundToInt()
+                        (58 * density).roundToInt()
                     ).apply {
-                        if (index > 0) marginStart = (6 * density).roundToInt()
+                        if (idx > 0) marginStart = (6 * density).roundToInt()
                     }
-                    radius = 31f * density
+                    radius = 29f * density
                     cardElevation = 0f
-                    strokeWidth = (2.6f * density).roundToInt()
+                    strokeWidth = (2.5f * density).roundToInt()
                     strokeColor = colorPrimary
-                    setCardBackgroundColor(colorSecondaryContainer)
+                    setCardBackgroundColor(ColorUtils.setAlphaComponent(colorSecondaryContainer, 225))
                     isClickable = true
                     isFocusable = true
                 }
@@ -688,12 +878,17 @@ class QuickSearchActivity : AppCompatActivity() {
                     setPadding(
                         (9 * density).roundToInt(),
                         0,
-                        (16 * density).roundToInt(),
+                        (15 * density).roundToInt(),
                         0
                     )
                 }
 
-                val iconHolder = createIconWithOptionalBadge(item, isExpanded = true, density = density)
+                val iconSizePx = (40 * density).roundToInt()
+                val iconView = ImageView(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(iconSizePx, iconSizePx)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                }
+                bindTier1Icon(iconView, item, density)
 
                 val textCol = LinearLayout(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
@@ -706,9 +901,9 @@ class QuickSearchActivity : AppCompatActivity() {
                 }
 
                 val titleView = TextView(this).apply {
-                    text = getItemTitle(item)
+                    text = getTier1Title(item)
                     maxLines = 1
-                    maxWidth = (210 * density).roundToInt()
+                    maxWidth = (200 * density).roundToInt()
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(colorOnSecondaryContainer)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
@@ -716,10 +911,8 @@ class QuickSearchActivity : AppCompatActivity() {
                 }
 
                 val subView = TextView(this).apply {
-                    text = getItemSubtitleWithEnter(item)
+                    text = getTier1Subtitle(item)
                     maxLines = 1
-                    maxWidth = (210 * density).roundToInt()
-                    ellipsize = TextUtils.TruncateAt.END
                     setTextColor(colorPrimary)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
                     typeface = Typeface.DEFAULT_BOLD
@@ -727,13 +920,13 @@ class QuickSearchActivity : AppCompatActivity() {
 
                 textCol.addView(titleView)
                 textCol.addView(subView)
-                pillRow.addView(iconHolder)
+                pillRow.addView(iconView)
                 pillRow.addView(textCol)
                 pillCard.addView(pillRow)
 
                 pillCard.setOnClickListener { v ->
                     performHaptic(v)
-                    executeDockItem(item)
+                    executeTarget(item)
                 }
 
                 if (animateMorph) {
@@ -742,131 +935,226 @@ class QuickSearchActivity : AppCompatActivity() {
                     pillCard.animate()
                         .scaleX(1f)
                         .scaleY(1f)
-                        .setDuration(130L)
-                        .setInterpolator(OvershootInterpolator(1.35f))
+                        .setDuration(125L)
+                        .setInterpolator(OvershootInterpolator(1.3f))
                         .start()
                 }
 
                 rowDockItems.addView(pillCard)
-                activeViewToScroll = pillCard
             } else {
-                // Compact Circular Icon (48dp)
-                val circleSizePx = (48 * density).roundToInt()
+                val circleSizePx = (46 * density).roundToInt()
                 val circleHolder = FrameLayout(this).apply {
                     layoutParams = LinearLayout.LayoutParams(circleSizePx, circleSizePx).apply {
-                        if (index > 0) marginStart = (8 * density).roundToInt()
+                        if (idx > 0) marginStart = (8 * density).roundToInt()
                     }
                     isClickable = true
                     isFocusable = true
                 }
 
-                if (item is DockItem.SearchEngine ||
-                    item is DockItem.Bang ||
-                    item is DockItem.Calculator ||
-                    item is DockItem.DeepAction ||
-                    item is DockItem.EcosystemQuery
-                ) {
+                if (item !is SelectableTarget.App) {
                     circleHolder.background = GradientDrawable().apply {
                         shape = GradientDrawable.OVAL
-                        setColor(colorSurfaceHighest)
-                        setStroke((1.2f * density).roundToInt(), colorOutlineVariant)
+                        setColor(ColorUtils.setAlphaComponent(colorSurfaceHighest, 195))
+                        setStroke((1.1f * density).roundToInt(), ColorUtils.setAlphaComponent(colorOutlineVariant, 150))
                     }
                 }
 
-                val iconWithBadge = createIconWithOptionalBadge(item, isExpanded = false, density = density)
-                circleHolder.addView(iconWithBadge)
+                val iconSizePx = if (item is SelectableTarget.App) (42 * density).roundToInt() else (24 * density).roundToInt()
+                val iconView = ImageView(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(iconSizePx, iconSizePx, Gravity.CENTER)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                }
+                bindTier1Icon(iconView, item, density)
 
+                circleHolder.addView(iconView)
                 circleHolder.setOnClickListener { v ->
                     performHaptic(v)
-                    selectedIndex = index
-                    executeDockItem(item)
+                    selectedGlobalIndex = globalIdx
+                    executeTarget(item)
                 }
 
                 rowDockItems.addView(circleHolder)
             }
         }
 
-        if (animateMorph && activeViewToScroll != null) {
-            scrollIconDock.post {
-                val targetLeft = activeViewToScroll.left - (24 * density).roundToInt()
-                scrollIconDock.smoothScrollTo(targetLeft.coerceAtLeast(0), 0)
-            }
-        }
-    }
+        // =====================================================================
+        // RENDER TIER 2: Compact Frosted Chips (Contacts with Call button, Settings, App Shortcuts)
+        // =====================================================================
+        for ((idx, item) in tier2Items.withIndex()) {
+            val globalIdx = tier1Items.size + idx
+            val isSelected = (globalIdx == selectedGlobalIndex)
 
-    /**
-     * Creates the icon view for a dock item, adding a small corner badge for DeepAction
-     * (Settings gear or Google G badge) so the user immediately distinguishes an App from
-     * a Deep Function / Settings sub-page inside the Minimalist Icon Dock.
-     */
-    private fun createIconWithOptionalBadge(item: DockItem, isExpanded: Boolean, density: Float): View {
-        val boxSizePx = if (isExpanded) (42 * density).roundToInt() else (48 * density).roundToInt()
-        val container = FrameLayout(this).apply {
-            layoutParams = if (isExpanded) {
-                LinearLayout.LayoutParams(boxSizePx, boxSizePx)
-            } else {
-                FrameLayout.LayoutParams(boxSizePx, boxSizePx, Gravity.CENTER)
-            }
-        }
-
-        val mainIconSizePx = when (item) {
-            is DockItem.App -> if (isExpanded) (42 * density).roundToInt() else (44 * density).roundToInt()
-            is DockItem.DeepAction, is DockItem.EcosystemQuery -> {
-                val hasAppIcon = AppLaunchCache.getAppIcon(this, getDeepPackage(item)) != null
-                if (hasAppIcon) (34 * density).roundToInt() else (24 * density).roundToInt()
-            }
-            else -> (24 * density).roundToInt()
-        }
-
-        val iconView = ImageView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(mainIconSizePx, mainIconSizePx, Gravity.CENTER)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
-        bindItemIcon(iconView, item, density)
-        container.addView(iconView)
-
-        // Add subtle corner badge for DeepAction so it visually stands out as a deep function
-        if (item is DockItem.DeepAction) {
-            val badgeSizePx = (16 * density).roundToInt()
-            val colorPrimary = resolveThemeColor(com.google.android.material.R.attr.colorPrimary)
-            val colorOnPrimary = resolveThemeColor(com.google.android.material.R.attr.colorOnPrimary)
-            val badgeView = TextView(this).apply {
-                layoutParams = FrameLayout.LayoutParams(
-                    badgeSizePx,
-                    badgeSizePx,
-                    Gravity.BOTTOM or Gravity.END
+            val chipCard = MaterialCardView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    (44 * density).roundToInt()
+                ).apply {
+                    if (idx > 0) marginStart = (6 * density).roundToInt()
+                }
+                radius = 22f * density
+                cardElevation = 0f
+                strokeWidth = if (isSelected) (2.3f * density).roundToInt() else (1f * density).roundToInt()
+                strokeColor = if (isSelected) colorPrimary else ColorUtils.setAlphaComponent(colorOutlineVariant, 140)
+                setCardBackgroundColor(
+                    if (isSelected) {
+                        ColorUtils.setAlphaComponent(colorSecondaryContainer, 225)
+                    } else {
+                        ColorUtils.setAlphaComponent(colorSurfaceHighest, 185)
+                    }
                 )
-                gravity = Gravity.CENTER
-                text = when (item.candidate.category) {
-                    DeepActionCategory.SETTINGS -> "⚙"
-                    DeepActionCategory.APP_FUNCTION -> "⚡"
-                    DeepActionCategory.GOOGLE_ECOSYSTEM -> "G"
-                }
-                setTextColor(colorOnPrimary)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(colorPrimary)
-                }
+                isClickable = true
+                isFocusable = true
             }
-            container.addView(badgeView)
-        }
 
-        return container
+            val chipRow = LinearLayout(this).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(
+                    (8 * density).roundToInt(),
+                    0,
+                    (10 * density).roundToInt(),
+                    0
+                )
+            }
+
+            when (item) {
+                is SelectableTarget.Contact -> {
+                    // Avatar circle with contact initial
+                    val avatarSize = (28 * density).roundToInt()
+                    val initial = item.candidate.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "👤"
+                    val avatarView = TextView(this).apply {
+                        layoutParams = LinearLayout.LayoutParams(avatarSize, avatarSize)
+                        gravity = Gravity.CENTER
+                        text = initial
+                        setTextColor(colorOnPrimary)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+                        typeface = Typeface.DEFAULT_BOLD
+                        background = GradientDrawable().apply {
+                            shape = GradientDrawable.OVAL
+                            setColor(colorPrimary)
+                        }
+                    }
+                    chipRow.addView(avatarView)
+
+                    val nameText = TextView(this).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            marginStart = (8 * density).roundToInt()
+                        }
+                        text = if (isSelected) "${item.candidate.displayName} • ↵" else item.candidate.displayName
+                        maxLines = 1
+                        maxWidth = (155 * density).roundToInt()
+                        ellipsize = TextUtils.TruncateAt.END
+                        setTextColor(if (isSelected) colorOnSecondaryContainer else colorOnSurface)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
+                        typeface = Typeface.DEFAULT_BOLD
+                    }
+                    chipRow.addView(nameText)
+
+                    // Separate circular Call button ("📞") on the right of the contact chip
+                    if (!item.candidate.phoneNumber.isNullOrBlank()) {
+                        val callSize = (30 * density).roundToInt()
+                        val callBtn = TextView(this).apply {
+                            layoutParams = LinearLayout.LayoutParams(callSize, callSize).apply {
+                                marginStart = (8 * density).roundToInt()
+                            }
+                            gravity = Gravity.CENTER
+                            text = "📞"
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                            background = GradientDrawable().apply {
+                                shape = GradientDrawable.OVAL
+                                setColor(ColorUtils.setAlphaComponent(colorPrimary, 45))
+                                setStroke((1f * density).roundToInt(), colorPrimary)
+                            }
+                            setOnClickListener { v ->
+                                performHaptic(v)
+                                val dialIntent = ContactSearchHelper.createDialContactIntent(item.candidate)
+                                safeLaunchAndFinish(dialIntent)
+                            }
+                        }
+                        chipRow.addView(callBtn)
+                    }
+                }
+
+                is SelectableTarget.RequestContactsPermission -> {
+                    val labelView = TextView(this).apply {
+                        text = "👤 Разрешить поиск контактов"
+                        maxLines = 1
+                        setTextColor(colorPrimary)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                        typeface = Typeface.DEFAULT_BOLD
+                        setPadding((4 * density).roundToInt(), 0, (4 * density).roundToInt(), 0)
+                    }
+                    chipRow.addView(labelView)
+                }
+
+                is SelectableTarget.DeepChip -> {
+                    val iconSize = (24 * density).roundToInt()
+                    val appDrawable = AppLaunchCache.getAppIcon(this, item.candidate.packageName)
+                    if (appDrawable != null) {
+                        val iv = ImageView(this).apply {
+                            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                            setImageDrawable(appDrawable)
+                        }
+                        chipRow.addView(iv)
+                    } else {
+                        val badgeEmoji = when (item.candidate.category) {
+                            DeepActionCategory.SETTINGS -> "⚙"
+                            DeepActionCategory.APP_FUNCTION -> "⚡"
+                            DeepActionCategory.GOOGLE_ECOSYSTEM -> "G"
+                        }
+                        val tvBadge = TextView(this).apply {
+                            text = badgeEmoji
+                            setTextColor(colorPrimary)
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                            typeface = Typeface.DEFAULT_BOLD
+                        }
+                        chipRow.addView(tvBadge)
+                    }
+
+                    val titleView = TextView(this).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            marginStart = (7 * density).roundToInt()
+                            marginEnd = (2 * density).roundToInt()
+                        }
+                        text = if (isSelected) "${item.candidate.title} • ↵" else item.candidate.title
+                        maxLines = 1
+                        maxWidth = (185 * density).roundToInt()
+                        ellipsize = TextUtils.TruncateAt.END
+                        setTextColor(if (isSelected) colorOnSecondaryContainer else colorOnSurface)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.2f)
+                        typeface = if (isSelected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                    }
+                    chipRow.addView(titleView)
+                }
+
+                else -> {}
+            }
+
+            chipCard.addView(chipRow)
+            chipCard.setOnClickListener { v ->
+                performHaptic(v)
+                selectedGlobalIndex = globalIdx
+                executeTarget(item)
+            }
+
+            rowDeepChips.addView(chipCard)
+        }
     }
 
-    private fun getDeepPackage(item: DockItem): String {
-        return when (item) {
-            is DockItem.DeepAction -> item.candidate.packageName
-            is DockItem.EcosystemQuery -> item.candidate.packageName
-            else -> ""
-        }
-    }
-
-    private fun bindItemIcon(iconView: ImageView, item: DockItem, density: Float) {
+    private fun bindTier1Icon(iconView: ImageView, item: SelectableTarget, density: Float) {
         when (item) {
-            is DockItem.App -> {
+            is SelectableTarget.App -> {
                 val drawable = AppLaunchCache.getAppIcon(this, item.candidate.packageName)
                 if (drawable != null) {
                     iconView.setImageDrawable(drawable)
@@ -874,19 +1162,7 @@ class QuickSearchActivity : AppCompatActivity() {
                     iconView.setImageResource(R.drawable.ic_browser)
                 }
             }
-            is DockItem.DeepAction -> {
-                val drawable = AppLaunchCache.getAppIcon(this, item.candidate.packageName)
-                if (drawable != null) {
-                    iconView.setImageDrawable(drawable)
-                } else {
-                    val res = when (item.candidate.category) {
-                        DeepActionCategory.GOOGLE_ECOSYSTEM -> R.drawable.ic_google_logo_color
-                        else -> R.drawable.ic_ai_mode_ref
-                    }
-                    iconView.setImageResource(res)
-                }
-            }
-            is DockItem.EcosystemQuery -> {
+            is SelectableTarget.TriggerAction -> {
                 val drawable = AppLaunchCache.getAppIcon(this, item.candidate.packageName)
                 if (drawable != null) {
                     iconView.setImageDrawable(drawable)
@@ -894,18 +1170,13 @@ class QuickSearchActivity : AppCompatActivity() {
                     iconView.setImageResource(R.drawable.ic_google_logo_color)
                 }
             }
-            is DockItem.Calculator -> {
-                val pad = (4 * density).roundToInt()
+            is SelectableTarget.Calculator, is SelectableTarget.Bang -> {
+                val pad = (5 * density).roundToInt()
                 iconView.setPadding(pad, pad, pad, pad)
                 iconView.setImageResource(R.drawable.ic_ai_mode_ref)
             }
-            is DockItem.Bang -> {
-                val pad = (4 * density).roundToInt()
-                iconView.setPadding(pad, pad, pad, pad)
-                iconView.setImageResource(R.drawable.ic_ai_mode_ref)
-            }
-            is DockItem.SearchEngine -> {
-                val pad = (4 * density).roundToInt()
+            is SelectableTarget.SearchEngine -> {
+                val pad = (5 * density).roundToInt()
                 iconView.setPadding(pad, pad, pad, pad)
                 val iconStyle = WidgetPrefs.getIconStyle(this)
                 if (item.isSparkleIcon) {
@@ -926,25 +1197,25 @@ class QuickSearchActivity : AppCompatActivity() {
                     iconView.setImageResource(res)
                 }
             }
+            else -> {}
         }
     }
 
-    private fun getItemTitle(item: DockItem): String {
+    private fun getTier1Title(item: SelectableTarget): String {
         return when (item) {
-            is DockItem.Calculator -> "= ${item.result}"
-            is DockItem.DeepAction -> item.candidate.title
-            is DockItem.App -> item.candidate.label
-            is DockItem.Bang -> item.route.displayTitle
-            is DockItem.SearchEngine -> item.label
-            is DockItem.EcosystemQuery -> item.candidate.title
+            is SelectableTarget.Calculator -> "= ${item.result}"
+            is SelectableTarget.TriggerAction -> item.candidate.title
+            is SelectableTarget.App -> item.candidate.label
+            is SelectableTarget.Bang -> item.route.displayTitle
+            is SelectableTarget.SearchEngine -> item.label
+            else -> ""
         }
     }
 
-    private fun getItemSubtitleWithEnter(item: DockItem): String {
+    private fun getTier1Subtitle(item: SelectableTarget): String {
         return when (item) {
-            is DockItem.DeepAction -> "${item.candidate.subtitle} • Enter ↵"
-            is DockItem.EcosystemQuery -> "${item.candidate.subtitle} • Enter ↵"
-            is DockItem.Calculator -> "Скопировать • Enter ↵"
+            is SelectableTarget.TriggerAction -> "${item.candidate.subtitle} • Enter ↵"
+            is SelectableTarget.Calculator -> "Скопировать • Enter ↵"
             else -> "Enter ↵"
         }
     }
@@ -965,9 +1236,9 @@ class QuickSearchActivity : AppCompatActivity() {
         performHaptic(editSearch)
         val rawQuery = editSearch.text?.toString()?.trim() ?: ""
 
-        if (currentDockItems.isNotEmpty()) {
-            val chosen = currentDockItems.getOrElse(selectedIndex) { currentDockItems.first() }
-            executeDockItem(chosen)
+        if (allSelectableTargets.isNotEmpty()) {
+            val chosen = allSelectableTargets.getOrElse(selectedGlobalIndex) { allSelectableTargets.first() }
+            executeTarget(chosen)
             return
         }
 
@@ -975,20 +1246,31 @@ class QuickSearchActivity : AppCompatActivity() {
         dispatchToAiOrSearch(defaultEngine, rawQuery)
     }
 
-    private fun executeDockItem(item: DockItem) {
+    private fun executeTarget(target: SelectableTarget) {
         val rawQuery = editSearch.text?.toString()?.trim() ?: ""
-        when (item) {
-            is DockItem.Calculator -> copyMathResult(item.result)
-            is DockItem.DeepAction -> {
-                val intent = item.candidate.intentProvider(this, rawQuery)
+        when (target) {
+            is SelectableTarget.Calculator -> copyMathResult(target.result)
+            is SelectableTarget.TriggerAction -> {
+                val intent = target.candidate.intentProvider(this, rawQuery)
                 safeLaunchAndFinish(intent)
             }
-            is DockItem.App -> launchApp(item.candidate.packageName)
-            is DockItem.Bang -> executeBangRoute(item.route)
-            is DockItem.SearchEngine -> dispatchToAiOrSearch(item.engineCode, rawQuery)
-            is DockItem.EcosystemQuery -> {
-                val intent = item.candidate.intentProvider(this, rawQuery)
+            is SelectableTarget.App -> launchApp(target.candidate.packageName)
+            is SelectableTarget.Bang -> executeBangRoute(target.route)
+            is SelectableTarget.SearchEngine -> dispatchToAiOrSearch(target.engineCode, rawQuery)
+            is SelectableTarget.Contact -> {
+                val openIntent = ContactSearchHelper.createOpenContactIntent(target.candidate)
+                safeLaunchAndFinish(openIntent)
+            }
+            is SelectableTarget.DeepChip -> {
+                val intent = target.candidate.intentProvider(this, rawQuery)
                 safeLaunchAndFinish(intent)
+            }
+            is SelectableTarget.RequestContactsPermission -> {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.READ_CONTACTS),
+                    REQ_READ_CONTACTS
+                )
             }
         }
     }
@@ -1038,7 +1320,6 @@ class QuickSearchActivity : AppCompatActivity() {
         try {
             startActivity(intent)
         } catch (_: Exception) {
-            // Fallback to web search if a specialized system Settings/App intent isn't supported on this ROM
             val rawQuery = editSearch.text?.toString()?.trim() ?: ""
             if (rawQuery.isNotEmpty()) {
                 try {
@@ -1075,15 +1356,17 @@ class QuickSearchActivity : AppCompatActivity() {
             editSearch.setText("")
         }
         updateRightCapsuleButtons(isEmpty = true)
-        wasDockVisible = false
+        wasTier1Visible = false
+        wasTier2Visible = false
         cardIconDock.visibility = View.GONE
+        cardDeepChips.visibility = View.GONE
         rowDockItems.removeAllViews()
+        rowDeepChips.removeAllViews()
     }
 
     /**
-     * Smoothly folds the upper Icon Dock Pill and morphs the search capsule directly back into
-     * the home screen widget coordinates ([activeWidgetBounds]), dissolving the backdrop blur
-     * before moving the task to back with zero sideways/center window transition.
+     * Smoothly folds both Frosted Glass result blocks and morphs the search capsule back into
+     * its origin (the home screen widget bounds or the All Apps search bar) while dissolving blur.
      */
     private fun closeOverlay(animateToWidget: Boolean = true) {
         if (isClosingAnimating) return
@@ -1101,24 +1384,33 @@ class QuickSearchActivity : AppCompatActivity() {
 
         isClosingAnimating = true
         val density = resources.displayMetrics.density
+        val foldDir = if (isFromAllApps) -1f else 1f
 
-        // Restore 1:1 widget right buttons during the reverse morph so it visually becomes the widget
         updateRightCapsuleButtons(isEmpty = true)
 
-        // 1. Fold the upper Icon Dock Pill down into the search bar
-        if (cardIconDock.visibility == View.VISIBLE) {
-            cardIconDock.animate()
-                .translationY(16f * density)
+        if (cardDeepChips.visibility == View.VISIBLE) {
+            cardDeepChips.animate()
+                .translationY(14f * density * foldDir)
                 .scaleX(0.88f)
                 .scaleY(0.88f)
                 .alpha(0f)
-                .setDuration(110L)
+                .setDuration(105L)
                 .setInterpolator(DecelerateInterpolator())
                 .start()
         }
 
-        // 2. Compute exact delta to home screen widget bounds (if known)
-        val targetBounds = activeWidgetBounds
+        if (cardIconDock.visibility == View.VISIBLE) {
+            cardIconDock.animate()
+                .translationY(14f * density * foldDir)
+                .scaleX(0.88f)
+                .scaleY(0.88f)
+                .alpha(0f)
+                .setDuration(115L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+
+        val targetBounds = activeSourceBounds
         val loc = IntArray(2)
         outerRing.getLocationOnScreen(loc)
         val ringW = outerRing.width.coerceAtLeast(1)
@@ -1131,28 +1423,28 @@ class QuickSearchActivity : AppCompatActivity() {
         val targetScaleX: Float
         val targetScaleY: Float
 
-        if (targetBounds != null && !targetBounds.isEmpty) {
+        if (!isFromAllApps && targetBounds != null && !targetBounds.isEmpty) {
             targetDx = targetBounds.exactCenterX() - ringCenterX
             targetDy = targetBounds.exactCenterY() - ringCenterY
             targetScaleX = (targetBounds.width().toFloat() / ringW).coerceIn(0.65f, 1.25f)
             targetScaleY = (targetBounds.height().toFloat() / ringH).coerceIn(0.65f, 1.25f)
         } else {
+            // In All Apps mode, capsule is already right on top of the native search bar
             targetDx = 0f
-            targetDy = 18f * density
-            targetScaleX = 0.94f
-            targetScaleY = 0.94f
+            targetDy = 0f
+            targetScaleX = 0.97f
+            targetScaleY = 0.97f
         }
 
-        // 3. Smoothly fade window dim & blur in lockstep with the capsule morph
-        val startBlur = (44 * density).roundToInt()
+        val startBlur = (56 * density).roundToInt()
         ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = 165L
+            duration = 155L
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val fraction = anim.animatedValue as Float
                 try {
                     window.attributes = window.attributes.apply {
-                        dimAmount = 0.30f * fraction
+                        dimAmount = 0.25f * fraction
                         blurBehindRadius = (startBlur * fraction).roundToInt().coerceAtLeast(1)
                         windowAnimations = R.style.Style_NoWindowAnimation
                     }
@@ -1161,14 +1453,13 @@ class QuickSearchActivity : AppCompatActivity() {
             start()
         }
 
-        // 4. Animate the search capsule directly into the widget's position and scale
         outerRing.animate()
             .translationX(targetDx)
             .translationY(targetDy)
             .scaleX(targetScaleX)
             .scaleY(targetScaleY)
             .alpha(0f)
-            .setDuration(165L)
+            .setDuration(155L)
             .setInterpolator(DecelerateInterpolator(1.2f))
             .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
