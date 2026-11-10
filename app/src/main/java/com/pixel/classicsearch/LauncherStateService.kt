@@ -54,8 +54,6 @@ class LauncherStateService : AccessibilityService() {
 
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                AccessibilityEvent.TYPE_VIEW_CLICKED or
-                AccessibilityEvent.TYPE_VIEW_FOCUSED or
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
@@ -130,8 +128,6 @@ class LauncherStateService : AccessibilityService() {
                 }
                 ensureClassicSearchEngine()
             }
-            AccessibilityEvent.TYPE_VIEW_CLICKED,
-            AccessibilityEvent.TYPE_VIEW_FOCUSED,
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
                 handleSearchInputEvent(event)
             }
@@ -163,14 +159,23 @@ class LauncherStateService : AccessibilityService() {
                 } else ""
                 val queryText = if (rawText.isNotEmpty() && rawText != hintText) rawText else ""
 
-                // Only intercept on explicit finger click on the App Drawer search bar (never hijack swipe-up!)
+                // Only launch our overlay when actual text is typed in the App Drawer search bar
+                // (never hijack swipe-up or empty search bar tap).
                 if (WidgetPrefs.isQuickOverlayEnabled(this) &&
-                    event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED
+                    event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED &&
+                    queryText.isNotEmpty()
                 ) {
                     val now = SystemClock.elapsedRealtime()
-                    if (now - lastOverlayLaunchTime > 500L) {
+                    if (now - lastOverlayLaunchTime > 450L) {
                         lastOverlayLaunchTime = now
                         try {
+                            val clearArgs = android.os.Bundle().apply {
+                                putCharSequence(
+                                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                                    ""
+                                )
+                            }
+                            source.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, clearArgs)
                             source.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS)
                         } catch (_: Exception) {}
                         launchQuickOverlayNow(queryText)
