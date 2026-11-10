@@ -29,6 +29,10 @@ object WidgetPrefs {
     // Feature 5: QuickSearch Overlay (v1.5.0-alpha1)
     private const val KEY_QUICK_OVERLAY_ENABLED = "quick_overlay_enabled"
     private const val KEY_RECENT_APPS = "quick_recent_apps"
+    private const val KEY_WIDGET_BOUNDS_LEFT = "widget_bounds_left"
+    private const val KEY_WIDGET_BOUNDS_TOP = "widget_bounds_top"
+    private const val KEY_WIDGET_BOUNDS_RIGHT = "widget_bounds_right"
+    private const val KEY_WIDGET_BOUNDS_BOTTOM = "widget_bounds_bottom"
 
     // Surface styles
     const val SURFACE_DEEP_RING = 0    // Default: system_accent2_300 frame + system_neutral1_10 inner
@@ -264,5 +268,26 @@ object WidgetPrefs {
             .edit()
             .putString(KEY_RECENT_APPS, updated)
             .apply()
+    }
+
+    fun saveWidgetBounds(context: Context, bounds: android.graphics.Rect) {
+        if (bounds.isEmpty) return
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_WIDGET_BOUNDS_LEFT, bounds.left)
+            .putInt(KEY_WIDGET_BOUNDS_TOP, bounds.top)
+            .putInt(KEY_WIDGET_BOUNDS_RIGHT, bounds.right)
+            .putInt(KEY_WIDGET_BOUNDS_BOTTOM, bounds.bottom)
+            .apply()
+    }
+
+    fun getSavedWidgetBounds(context: Context): android.graphics.Rect? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val left = prefs.getInt(KEY_WIDGET_BOUNDS_LEFT, -1)
+        val top = prefs.getInt(KEY_WIDGET_BOUNDS_TOP, -1)
+        val right = prefs.getInt(KEY_WIDGET_BOUNDS_RIGHT, -1)
+        val bottom = prefs.getInt(KEY_WIDGET_BOUNDS_BOTTOM, -1)
+        if (left < 0 || top < 0 || right <= left || bottom <= top) return null
+        return android.graphics.Rect(left, top, right, bottom)
     }
 }

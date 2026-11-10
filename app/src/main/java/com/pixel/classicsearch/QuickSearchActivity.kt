@@ -1,9 +1,13 @@
 package com.pixel.classicsearch
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -19,6 +23,7 @@ import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -29,7 +34,9 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import com.google.android.material.card.MaterialCardView
 import kotlin.math.roundToInt
 
@@ -42,11 +49,13 @@ import kotlin.math.roundToInt
  *    44dp hardware-blurred desktop backdrop. Zero extra boxes or cards.
  * 2. Typing state (1+ chars): right widget buttons fold into a clean "✕" button while a single
  *    oval Icon Dock Pill unfolds above the search bar.
- * 3. Inside the Icon Dock Pill: matched apps + divider + AI/Google search circles.
- *    The active Enter target expands into a glowing capsule ([Icon + Title + Enter ↵]) with a
- *    2.6dp colorPrimary outline, while secondary items stay clean circular icons.
- * 4. Adaptive placement: anchored at the bottom right above Gboard on phones, and centered
- *    in the available workspace on tablets.
+ * 3. Extended Deep Search: inside the Icon Dock Pill, matched apps, Android System Settings
+ *    sub-pages, App Shortcuts/Functions (with corner app badge), and Google Ecosystem actions
+ *    (YouTube, Maps, Translate, Play Store, AI/Search) seamlessly morph into an expanded
+ *    active capsule ([Icon + Title / Subtitle + Enter ↵]) with a 2.6dp colorPrimary outline.
+ * 4. Smooth Reverse Morph on Dismiss: when closing (Back gesture, Back key, or outside tap),
+ *    the upper Icon Dock Pill folds down and the search capsule morphs smoothly back into the
+ *    exact home screen widget coordinates (intent.sourceBounds) with zero sideways/center window slide.
  */
 class QuickSearchActivity : AppCompatActivity() {
 
@@ -57,9 +66,11 @@ class QuickSearchActivity : AppCompatActivity() {
 
     private sealed class DockItem {
         data class Calculator(val expression: String, val result: String) : DockItem()
+        data class DeepAction(val candidate: DeepSearchCandidate) : DockItem()
         data class App(val candidate: AppSearchCandidate) : DockItem()
         data class Bang(val route: BangRoute) : DockItem()
         data class SearchEngine(val engineCode: String, val label: String, val isSparkleIcon: Boolean) : DockItem()
+        data class EcosystemQuery(val candidate: DeepSearchCandidate) : DockItem()
     }
 
     private lateinit var overlayRoot: View
@@ -82,6 +93,8 @@ class QuickSearchActivity : AppCompatActivity() {
     private val currentDockItems = mutableListOf<DockItem>()
     private var selectedIndex: Int = 0
     private var wasDockVisible: Boolean = false
+    private var isClosingAnimating: Boolean = false
+    private var activeWidgetBounds: Rect? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         suppressTransitions()
@@ -94,7 +107,9 @@ class QuickSearchActivity : AppCompatActivity() {
         bindViews()
         applyUserWidgetStyling()
         setupListeners()
+        setupBackNavigation()
 
+        captureWidgetSourceBounds(intent)
         if (intent?.getBooleanExtra("from_widget", false) == true) {
             performHaptic(outerRing)
         }
@@ -121,6 +136,7 @@ class QuickSearchActivity : AppCompatActivity() {
         window.attributes = window.attributes.apply {
             blurBehindRadius = (44 * density).roundToInt()
             dimAmount = 0.30f
+            windowAnimations = R.style.Style_NoWindowAnimation
         }
         try {
             window.setBackgroundBlurRadius((28 * density).roundToInt())
@@ -132,7 +148,10 @@ class QuickSearchActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
 
+        isClosingAnimating = false
+        resetMorphTransforms()
         applyUserWidgetStyling()
+        captureWidgetSourceBounds(intent)
         if (intent.getBooleanExtra("from_widget", false)) {
             performHaptic(outerRing)
         }
@@ -141,21 +160,97 @@ class QuickSearchActivity : AppCompatActivity() {
         focusSearchInput()
     }
 
-    private fun playSeamlessEntrance() {
-        val density = resources.displayMetrics.density
+    private fun captureWidgetSourceBounds(incoming: Intent?) {
+        val bounds = incoming?.sourceBounds
+        if (bounds != null && !bounds.isEmpty) {
+            activeWidgetBounds = Rect(bounds)
+            WidgetPrefs.saveWidgetBounds(this, bounds)
+        } else {
+            activeWidgetBounds = WidgetPrefs.getSavedWidgetBounds(this)
+        }
+    }
+
+    private fun resetMorphTransforms() {
         panelContainer.animate().cancel()
-        panelContainer.translationY = 10f * density
-        panelContainer.scaleX = 0.985f
-        panelContainer.scaleY = 0.985f
-        panelContainer.alpha = 0.80f
-        panelContainer.animate()
-            .translationY(0f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .alpha(1f)
-            .setDuration(90L)
-            .setInterpolator(OvershootInterpolator(1.05f))
-            .start()
+        outerRing.animate().cancel()
+        cardIconDock.animate().cancel()
+
+        panelContainer.alpha = 1f
+        panelContainer.translationX = 0f
+        panelContainer.translationY = 0f
+        panelContainer.scaleX = 1f
+        panelContainer.scaleY = 1f
+
+        outerRing.alpha = 1f
+        outerRing.translationX = 0f
+        outerRing.translationY = 0f
+        outerRing.scaleX = 1f
+        outerRing.scaleY = 1f
+
+        cardIconDock.alpha = 1f
+        cardIconDock.translationY = 0f
+        cardIconDock.scaleX = 1f
+        cardIconDock.scaleY = 1f
+    }
+
+    private fun playSeamlessEntrance() {
+        isClosingAnimating = false
+        resetMorphTransforms()
+        val density = resources.displayMetrics.density
+
+        // Restore full window blur & dim on entrance
+        window.attributes = window.attributes.apply {
+            blurBehindRadius = (44 * density).roundToInt()
+            dimAmount = 0.30f
+            windowAnimations = R.style.Style_NoWindowAnimation
+        }
+
+        val targetBounds = activeWidgetBounds
+        if (targetBounds != null && !targetBounds.isEmpty) {
+            outerRing.post {
+                if (isClosingAnimating) return@post
+                val loc = IntArray(2)
+                outerRing.getLocationOnScreen(loc)
+                val ringW = outerRing.width.coerceAtLeast(1)
+                val ringH = outerRing.height.coerceAtLeast(1)
+                val ringCenterX = loc[0] + ringW / 2f
+                val ringCenterY = loc[1] + ringH / 2f
+
+                val startDx = targetBounds.exactCenterX() - ringCenterX
+                val startDy = targetBounds.exactCenterY() - ringCenterY
+                val startScaleX = (targetBounds.width().toFloat() / ringW).coerceIn(0.65f, 1.25f)
+                val startScaleY = (targetBounds.height().toFloat() / ringH).coerceIn(0.65f, 1.25f)
+
+                outerRing.translationX = startDx
+                outerRing.translationY = startDy
+                outerRing.scaleX = startScaleX
+                outerRing.scaleY = startScaleY
+                outerRing.alpha = 0.88f
+
+                outerRing.animate()
+                    .translationX(0f)
+                    .translationY(0f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .alpha(1f)
+                    .setDuration(150L)
+                    .setInterpolator(OvershootInterpolator(0.95f))
+                    .start()
+            }
+        } else {
+            panelContainer.translationY = 12f * density
+            panelContainer.scaleX = 0.96f
+            panelContainer.scaleY = 0.96f
+            panelContainer.alpha = 0.80f
+            panelContainer.animate()
+                .translationY(0f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(120L)
+                .setInterpolator(OvershootInterpolator(1.05f))
+                .start()
+        }
     }
 
     private fun applyIncomingIntent(incoming: Intent?) {
@@ -178,7 +273,9 @@ class QuickSearchActivity : AppCompatActivity() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.showSoftInput(editSearch, 0)
         editSearch.postDelayed({
-            imm?.showSoftInput(editSearch, InputMethodManager.SHOW_IMPLICIT)
+            if (!isClosingAnimating) {
+                imm?.showSoftInput(editSearch, InputMethodManager.SHOW_IMPLICIT)
+            }
         }, 16L)
     }
 
@@ -199,6 +296,14 @@ class QuickSearchActivity : AppCompatActivity() {
         ringGapSpacer = findViewById(R.id.quick_ring_gap_spacer)
         aiCircleWrapper = findViewById(R.id.quick_ai_circle_wrapper)
         btnAi = findViewById(R.id.btn_quick_ai)
+    }
+
+    private fun setupBackNavigation() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                closeOverlay(animateToWidget = true)
+            }
+        })
     }
 
     /**
@@ -287,7 +392,7 @@ class QuickSearchActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         overlayRoot.setOnClickListener {
-            closeOverlay()
+            closeOverlay(animateToWidget = true)
         }
 
         panelContainer.setOnClickListener { /* consume */ }
@@ -328,6 +433,7 @@ class QuickSearchActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
+                if (isClosingAnimating) return
                 val query = s?.toString() ?: ""
                 updateRightCapsuleButtons(query.isEmpty())
                 evaluateLiveQuery(query)
@@ -353,22 +459,28 @@ class QuickSearchActivity : AppCompatActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_DOWN && currentDockItems.isNotEmpty()) {
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_DOWN,
-                KeyEvent.KEYCODE_DPAD_RIGHT,
-                KeyEvent.KEYCODE_TAB -> {
-                    moveSelection(1)
-                    return true
-                }
-                KeyEvent.KEYCODE_DPAD_UP,
-                KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    moveSelection(-1)
-                    return true
-                }
-                KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                    handleEnterSubmit()
-                    return true
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            if (event.keyCode == KeyEvent.KEYCODE_ESCAPE || event.keyCode == KeyEvent.KEYCODE_BACK) {
+                closeOverlay(animateToWidget = true)
+                return true
+            }
+            if (currentDockItems.isNotEmpty()) {
+                when (event.keyCode) {
+                    KeyEvent.KEYCODE_DPAD_DOWN,
+                    KeyEvent.KEYCODE_DPAD_RIGHT,
+                    KeyEvent.KEYCODE_TAB -> {
+                        moveSelection(1)
+                        return true
+                    }
+                    KeyEvent.KEYCODE_DPAD_UP,
+                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        moveSelection(-1)
+                        return true
+                    }
+                    KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                        handleEnterSubmit()
+                        return true
+                    }
                 }
             }
         }
@@ -383,8 +495,12 @@ class QuickSearchActivity : AppCompatActivity() {
     }
 
     /**
-     * Evaluates the live query and populates the Minimalist Icon Dock Pill.
-     * When the query is empty, the Icon Dock Pill is completely hidden (true minimalism).
+     * Evaluates the live query and populates the Minimalist Icon Dock Pill:
+     * 1. Parameterized deep trigger ("перевод hello", "таймер 10", "карта аптека", "маркет shazam", "ютуб lofi")
+     * 2. Math calculator expression ("245*18")
+     * 3. Installed Applications (via AppLaunchCache + AppSearchMatcher)
+     * 4. Deep System Settings, App Shortcuts/Functions, and Google Ecosystem items (via DeepSearchCatalog)
+     * 5. Right-side AI / Search engines + Google Ecosystem live-query buttons (YouTube, Maps, Translate, Play Store)
      */
     private fun evaluateLiveQuery(rawQuery: String) {
         val trimmed = rawQuery.trim()
@@ -401,25 +517,43 @@ class QuickSearchActivity : AppCompatActivity() {
         // 1. Check !bang command
         val bang = QuickCalculator.parseBangCommand(trimmed)
 
-        // 2. Check math calculator
-        val mathRes = if (bang == null) QuickCalculator.evaluate(trimmed) else null
+        // 2. Check parameterized command trigger ("перевод ...", "карта ...", "таймер 10", "будильник 07:30")
+        val paramTrigger = if (bang == null) {
+            DeepSearchCatalog.resolveParameterizedTrigger(this, trimmed)
+        } else null
+        if (paramTrigger != null) {
+            currentDockItems.add(DockItem.DeepAction(paramTrigger))
+        }
+
+        // 3. Check math calculator
+        val mathRes = if (bang == null && paramTrigger == null) QuickCalculator.evaluate(trimmed) else null
         if (mathRes != null) {
             currentDockItems.add(DockItem.Calculator(trimmed, mathRes))
         }
 
-        // 3. Match installed applications via AppLaunchCache + AppSearchMatcher
+        // 4. Match installed applications via AppLaunchCache + AppSearchMatcher
         val candidates = AppLaunchCache.getCandidates(this)
-        val matches = if (bang == null) {
-            AppSearchMatcher.findMatches(candidates, trimmed, limit = 4)
+        val appMatches = if (bang == null && paramTrigger == null) {
+            AppSearchMatcher.findMatches(candidates, trimmed, limit = 3)
         } else {
             emptyList()
         }
-
-        for (app in matches) {
+        for (app in appMatches) {
             currentDockItems.add(DockItem.App(app))
         }
 
-        // 4. Right-side Search & AI circles inside the dock
+        // 5. Match deep Android Settings, App Functions/Shortcuts, and Google Ecosystem tools
+        val deepMatches = if (bang == null && paramTrigger == null) {
+            DeepSearchCatalog.findDeepMatches(this, trimmed, limit = 3)
+        } else {
+            emptyList()
+        }
+        for (deep in deepMatches) {
+            // Avoid duplicating an app that is already the exact same package without a specific sub-action
+            currentDockItems.add(DockItem.DeepAction(deep))
+        }
+
+        // 6. Right-side Search, AI & Google Ecosystem query targets inside the dock
         if (bang != null) {
             currentDockItems.add(DockItem.Bang(bang))
         } else {
@@ -455,6 +589,11 @@ class QuickSearchActivity : AppCompatActivity() {
                     )
                 )
             }
+
+            // Append Google Ecosystem live-query targets (YouTube, Maps, Translate, Play Store)
+            for (ecoTarget in DeepSearchCatalog.getEcosystemQueryTargets(trimmed)) {
+                currentDockItems.add(DockItem.EcosystemQuery(ecoTarget))
+            }
         }
 
         val animateUnfold = !wasDockVisible
@@ -481,9 +620,9 @@ class QuickSearchActivity : AppCompatActivity() {
 
     /**
      * Renders the items inside the Minimalist Icon Dock Pill:
-     * - The item at [selectedIndex] morphs into an expanded capsule ([Icon + Title + Enter ↵])
+     * - The item at [selectedIndex] morphs into an expanded capsule ([Icon + Title / Subtitle + Enter ↵])
      *   with a 2.6dp colorPrimary outline and colorSecondaryContainer fill.
-     * - All other items render as clean 48dp circular icons.
+     * - All other items render as clean 48dp circular icons (with optional corner badge for deep actions).
      */
     private fun renderIconDockItems(animateMorph: Boolean) {
         rowDockItems.removeAllViews()
@@ -495,12 +634,17 @@ class QuickSearchActivity : AppCompatActivity() {
         val colorSurfaceHighest = resolveThemeColor(com.google.android.material.R.attr.colorSurfaceContainerHighest)
         val colorOutlineVariant = resolveThemeColor(com.google.android.material.R.attr.colorOutlineVariant)
 
-        val hasLeftMatchItems = currentDockItems.any { it is DockItem.Calculator || it is DockItem.App }
+        val hasLeftMatchItems = currentDockItems.any {
+            it is DockItem.Calculator || it is DockItem.App || it is DockItem.DeepAction
+        }
         var dividerInserted = false
+        var activeViewToScroll: View? = null
 
         for ((index, item) in currentDockItems.withIndex()) {
-            val isSearchOrBang = item is DockItem.SearchEngine || item is DockItem.Bang
-            if (hasLeftMatchItems && isSearchOrBang && !dividerInserted) {
+            val isRightZoneItem = item is DockItem.SearchEngine ||
+                    item is DockItem.Bang ||
+                    item is DockItem.EcosystemQuery
+            if (hasLeftMatchItems && isRightZoneItem && !dividerInserted) {
                 dividerInserted = true
                 val divider = View(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
@@ -517,7 +661,7 @@ class QuickSearchActivity : AppCompatActivity() {
 
             val isSelected = (index == selectedIndex)
             if (isSelected) {
-                // Expanded Active Pill with 2.6dp colorPrimary outline ("Авито / Enter ↵")
+                // Expanded Active Pill with 2.6dp colorPrimary outline ("[Icon + Title / Subtitle • Enter ↵]")
                 val pillCard = MaterialCardView(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -549,12 +693,7 @@ class QuickSearchActivity : AppCompatActivity() {
                     )
                 }
 
-                val iconSizePx = (42 * density).roundToInt()
-                val iconView = ImageView(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(iconSizePx, iconSizePx)
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                }
-                bindItemIcon(iconView, item, density)
+                val iconHolder = createIconWithOptionalBadge(item, isExpanded = true, density = density)
 
                 val textCol = LinearLayout(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
@@ -569,16 +708,18 @@ class QuickSearchActivity : AppCompatActivity() {
                 val titleView = TextView(this).apply {
                     text = getItemTitle(item)
                     maxLines = 1
-                    maxWidth = (180 * density).roundToInt()
+                    maxWidth = (210 * density).roundToInt()
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(colorOnSecondaryContainer)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
                     typeface = Typeface.DEFAULT_BOLD
                 }
 
                 val subView = TextView(this).apply {
-                    text = "Enter ↵"
+                    text = getItemSubtitleWithEnter(item)
                     maxLines = 1
+                    maxWidth = (210 * density).roundToInt()
+                    ellipsize = TextUtils.TruncateAt.END
                     setTextColor(colorPrimary)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
                     typeface = Typeface.DEFAULT_BOLD
@@ -586,7 +727,7 @@ class QuickSearchActivity : AppCompatActivity() {
 
                 textCol.addView(titleView)
                 textCol.addView(subView)
-                pillRow.addView(iconView)
+                pillRow.addView(iconHolder)
                 pillRow.addView(textCol)
                 pillCard.addView(pillRow)
 
@@ -607,6 +748,7 @@ class QuickSearchActivity : AppCompatActivity() {
                 }
 
                 rowDockItems.addView(pillCard)
+                activeViewToScroll = pillCard
             } else {
                 // Compact Circular Icon (48dp)
                 val circleSizePx = (48 * density).roundToInt()
@@ -618,7 +760,12 @@ class QuickSearchActivity : AppCompatActivity() {
                     isFocusable = true
                 }
 
-                if (item is DockItem.SearchEngine || item is DockItem.Bang || item is DockItem.Calculator) {
+                if (item is DockItem.SearchEngine ||
+                    item is DockItem.Bang ||
+                    item is DockItem.Calculator ||
+                    item is DockItem.DeepAction ||
+                    item is DockItem.EcosystemQuery
+                ) {
                     circleHolder.background = GradientDrawable().apply {
                         shape = GradientDrawable.OVAL
                         setColor(colorSurfaceHighest)
@@ -626,14 +773,9 @@ class QuickSearchActivity : AppCompatActivity() {
                     }
                 }
 
-                val iconSizePx = if (item is DockItem.App) (44 * density).roundToInt() else (24 * density).roundToInt()
-                val iconView = ImageView(this).apply {
-                    layoutParams = FrameLayout.LayoutParams(iconSizePx, iconSizePx, Gravity.CENTER)
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                }
-                bindItemIcon(iconView, item, density)
+                val iconWithBadge = createIconWithOptionalBadge(item, isExpanded = false, density = density)
+                circleHolder.addView(iconWithBadge)
 
-                circleHolder.addView(iconView)
                 circleHolder.setOnClickListener { v ->
                     performHaptic(v)
                     selectedIndex = index
@@ -642,6 +784,83 @@ class QuickSearchActivity : AppCompatActivity() {
 
                 rowDockItems.addView(circleHolder)
             }
+        }
+
+        if (animateMorph && activeViewToScroll != null) {
+            scrollIconDock.post {
+                val targetLeft = activeViewToScroll.left - (24 * density).roundToInt()
+                scrollIconDock.smoothScrollTo(targetLeft.coerceAtLeast(0), 0)
+            }
+        }
+    }
+
+    /**
+     * Creates the icon view for a dock item, adding a small corner badge for DeepAction
+     * (Settings gear or Google G badge) so the user immediately distinguishes an App from
+     * a Deep Function / Settings sub-page inside the Minimalist Icon Dock.
+     */
+    private fun createIconWithOptionalBadge(item: DockItem, isExpanded: Boolean, density: Float): View {
+        val boxSizePx = if (isExpanded) (42 * density).roundToInt() else (48 * density).roundToInt()
+        val container = FrameLayout(this).apply {
+            layoutParams = if (isExpanded) {
+                LinearLayout.LayoutParams(boxSizePx, boxSizePx)
+            } else {
+                FrameLayout.LayoutParams(boxSizePx, boxSizePx, Gravity.CENTER)
+            }
+        }
+
+        val mainIconSizePx = when (item) {
+            is DockItem.App -> if (isExpanded) (42 * density).roundToInt() else (44 * density).roundToInt()
+            is DockItem.DeepAction, is DockItem.EcosystemQuery -> {
+                val hasAppIcon = AppLaunchCache.getAppIcon(this, getDeepPackage(item)) != null
+                if (hasAppIcon) (34 * density).roundToInt() else (24 * density).roundToInt()
+            }
+            else -> (24 * density).roundToInt()
+        }
+
+        val iconView = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(mainIconSizePx, mainIconSizePx, Gravity.CENTER)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        bindItemIcon(iconView, item, density)
+        container.addView(iconView)
+
+        // Add subtle corner badge for DeepAction so it visually stands out as a deep function
+        if (item is DockItem.DeepAction) {
+            val badgeSizePx = (16 * density).roundToInt()
+            val colorPrimary = resolveThemeColor(com.google.android.material.R.attr.colorPrimary)
+            val colorOnPrimary = resolveThemeColor(com.google.android.material.R.attr.colorOnPrimary)
+            val badgeView = TextView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    badgeSizePx,
+                    badgeSizePx,
+                    Gravity.BOTTOM or Gravity.END
+                )
+                gravity = Gravity.CENTER
+                text = when (item.candidate.category) {
+                    DeepActionCategory.SETTINGS -> "⚙"
+                    DeepActionCategory.APP_FUNCTION -> "⚡"
+                    DeepActionCategory.GOOGLE_ECOSYSTEM -> "G"
+                }
+                setTextColor(colorOnPrimary)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
+                typeface = Typeface.DEFAULT_BOLD
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(colorPrimary)
+                }
+            }
+            container.addView(badgeView)
+        }
+
+        return container
+    }
+
+    private fun getDeepPackage(item: DockItem): String {
+        return when (item) {
+            is DockItem.DeepAction -> item.candidate.packageName
+            is DockItem.EcosystemQuery -> item.candidate.packageName
+            else -> ""
         }
     }
 
@@ -655,18 +874,38 @@ class QuickSearchActivity : AppCompatActivity() {
                     iconView.setImageResource(R.drawable.ic_browser)
                 }
             }
+            is DockItem.DeepAction -> {
+                val drawable = AppLaunchCache.getAppIcon(this, item.candidate.packageName)
+                if (drawable != null) {
+                    iconView.setImageDrawable(drawable)
+                } else {
+                    val res = when (item.candidate.category) {
+                        DeepActionCategory.GOOGLE_ECOSYSTEM -> R.drawable.ic_google_logo_color
+                        else -> R.drawable.ic_ai_mode_ref
+                    }
+                    iconView.setImageResource(res)
+                }
+            }
+            is DockItem.EcosystemQuery -> {
+                val drawable = AppLaunchCache.getAppIcon(this, item.candidate.packageName)
+                if (drawable != null) {
+                    iconView.setImageDrawable(drawable)
+                } else {
+                    iconView.setImageResource(R.drawable.ic_google_logo_color)
+                }
+            }
             is DockItem.Calculator -> {
-                val pad = (6 * density).roundToInt()
+                val pad = (4 * density).roundToInt()
                 iconView.setPadding(pad, pad, pad, pad)
                 iconView.setImageResource(R.drawable.ic_ai_mode_ref)
             }
             is DockItem.Bang -> {
-                val pad = (6 * density).roundToInt()
+                val pad = (4 * density).roundToInt()
                 iconView.setPadding(pad, pad, pad, pad)
                 iconView.setImageResource(R.drawable.ic_ai_mode_ref)
             }
             is DockItem.SearchEngine -> {
-                val pad = (6 * density).roundToInt()
+                val pad = (4 * density).roundToInt()
                 iconView.setPadding(pad, pad, pad, pad)
                 val iconStyle = WidgetPrefs.getIconStyle(this)
                 if (item.isSparkleIcon) {
@@ -693,9 +932,20 @@ class QuickSearchActivity : AppCompatActivity() {
     private fun getItemTitle(item: DockItem): String {
         return when (item) {
             is DockItem.Calculator -> "= ${item.result}"
+            is DockItem.DeepAction -> item.candidate.title
             is DockItem.App -> item.candidate.label
             is DockItem.Bang -> item.route.displayTitle
             is DockItem.SearchEngine -> item.label
+            is DockItem.EcosystemQuery -> item.candidate.title
+        }
+    }
+
+    private fun getItemSubtitleWithEnter(item: DockItem): String {
+        return when (item) {
+            is DockItem.DeepAction -> "${item.candidate.subtitle} • Enter ↵"
+            is DockItem.EcosystemQuery -> "${item.candidate.subtitle} • Enter ↵"
+            is DockItem.Calculator -> "Скопировать • Enter ↵"
+            else -> "Enter ↵"
         }
     }
 
@@ -726,13 +976,19 @@ class QuickSearchActivity : AppCompatActivity() {
     }
 
     private fun executeDockItem(item: DockItem) {
+        val rawQuery = editSearch.text?.toString()?.trim() ?: ""
         when (item) {
             is DockItem.Calculator -> copyMathResult(item.result)
+            is DockItem.DeepAction -> {
+                val intent = item.candidate.intentProvider(this, rawQuery)
+                safeLaunchAndFinish(intent)
+            }
             is DockItem.App -> launchApp(item.candidate.packageName)
             is DockItem.Bang -> executeBangRoute(item.route)
-            is DockItem.SearchEngine -> {
-                val rawQuery = editSearch.text?.toString()?.trim() ?: ""
-                dispatchToAiOrSearch(item.engineCode, rawQuery)
+            is DockItem.SearchEngine -> dispatchToAiOrSearch(item.engineCode, rawQuery)
+            is DockItem.EcosystemQuery -> {
+                val intent = item.candidate.intentProvider(this, rawQuery)
+                safeLaunchAndFinish(intent)
             }
         }
     }
@@ -748,15 +1004,7 @@ class QuickSearchActivity : AppCompatActivity() {
 
     private fun executeBangRoute(bang: BangRoute) {
         if (bang.isYouTube) {
-            val encoded = Uri.encode(bang.cleanQuery)
-            val uri = if (bang.cleanQuery.isNotEmpty()) {
-                Uri.parse("https://www.youtube.com/results?search_query=$encoded")
-            } else {
-                Uri.parse("https://www.youtube.com")
-            }
-            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+            val intent = DeepSearchCatalog.createYouTubeSearchIntent(bang.cleanQuery)
             safeLaunchAndFinish(intent)
         } else {
             dispatchToAiOrSearch(bang.engineOrTarget, bang.cleanQuery)
@@ -782,15 +1030,23 @@ class QuickSearchActivity : AppCompatActivity() {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         clipboard?.setPrimaryClip(ClipData.newPlainText("Calculator Result", result))
         Toast.makeText(this, getString(R.string.quick_calc_copied, result), Toast.LENGTH_SHORT).show()
-        closeOverlay()
+        closeOverlay(animateToWidget = true)
     }
 
     private fun safeLaunchAndFinish(intent: Intent) {
         lastDismissRealtimeMs = SystemClock.elapsedRealtime()
         try {
             startActivity(intent)
-        } catch (_: Exception) {}
-        closeOverlay()
+        } catch (_: Exception) {
+            // Fallback to web search if a specialized system Settings/App intent isn't supported on this ROM
+            val rawQuery = editSearch.text?.toString()?.trim() ?: ""
+            if (rawQuery.isNotEmpty()) {
+                try {
+                    startActivity(AiSearchDispatcher.createSearchIntent(this, WidgetPrefs.SEARCH_ENGINE_GOOGLE, rawQuery))
+                } catch (_: Exception) {}
+            }
+        }
+        closeOverlay(animateToWidget = false)
     }
 
     override fun onUserLeaveHint() {
@@ -802,12 +1058,14 @@ class QuickSearchActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         lastDismissRealtimeMs = SystemClock.elapsedRealtime()
+        isClosingAnimating = false
         resetInputAndHideIme()
+        resetMorphTransforms()
     }
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        closeOverlay()
+        closeOverlay(animateToWidget = true)
     }
 
     private fun resetInputAndHideIme() {
@@ -816,13 +1074,113 @@ class QuickSearchActivity : AppCompatActivity() {
         if (!editSearch.text.isNullOrEmpty()) {
             editSearch.setText("")
         }
+        updateRightCapsuleButtons(isEmpty = true)
+        wasDockVisible = false
+        cardIconDock.visibility = View.GONE
+        rowDockItems.removeAllViews()
     }
 
-    private fun closeOverlay() {
+    /**
+     * Smoothly folds the upper Icon Dock Pill and morphs the search capsule directly back into
+     * the home screen widget coordinates ([activeWidgetBounds]), dissolving the backdrop blur
+     * before moving the task to back with zero sideways/center window transition.
+     */
+    private fun closeOverlay(animateToWidget: Boolean = true) {
+        if (isClosingAnimating) return
         lastDismissRealtimeMs = SystemClock.elapsedRealtime()
-        resetInputAndHideIme()
-        moveTaskToBack(true)
-        suppressTransitions()
+
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(editSearch.windowToken, 0)
+
+        if (!animateToWidget) {
+            resetInputAndHideIme()
+            moveTaskToBack(true)
+            suppressTransitions()
+            return
+        }
+
+        isClosingAnimating = true
+        val density = resources.displayMetrics.density
+
+        // Restore 1:1 widget right buttons during the reverse morph so it visually becomes the widget
+        updateRightCapsuleButtons(isEmpty = true)
+
+        // 1. Fold the upper Icon Dock Pill down into the search bar
+        if (cardIconDock.visibility == View.VISIBLE) {
+            cardIconDock.animate()
+                .translationY(16f * density)
+                .scaleX(0.88f)
+                .scaleY(0.88f)
+                .alpha(0f)
+                .setDuration(110L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+
+        // 2. Compute exact delta to home screen widget bounds (if known)
+        val targetBounds = activeWidgetBounds
+        val loc = IntArray(2)
+        outerRing.getLocationOnScreen(loc)
+        val ringW = outerRing.width.coerceAtLeast(1)
+        val ringH = outerRing.height.coerceAtLeast(1)
+        val ringCenterX = loc[0] + ringW / 2f
+        val ringCenterY = loc[1] + ringH / 2f
+
+        val targetDx: Float
+        val targetDy: Float
+        val targetScaleX: Float
+        val targetScaleY: Float
+
+        if (targetBounds != null && !targetBounds.isEmpty) {
+            targetDx = targetBounds.exactCenterX() - ringCenterX
+            targetDy = targetBounds.exactCenterY() - ringCenterY
+            targetScaleX = (targetBounds.width().toFloat() / ringW).coerceIn(0.65f, 1.25f)
+            targetScaleY = (targetBounds.height().toFloat() / ringH).coerceIn(0.65f, 1.25f)
+        } else {
+            targetDx = 0f
+            targetDy = 18f * density
+            targetScaleX = 0.94f
+            targetScaleY = 0.94f
+        }
+
+        // 3. Smoothly fade window dim & blur in lockstep with the capsule morph
+        val startBlur = (44 * density).roundToInt()
+        ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = 165L
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                val fraction = anim.animatedValue as Float
+                try {
+                    window.attributes = window.attributes.apply {
+                        dimAmount = 0.30f * fraction
+                        blurBehindRadius = (startBlur * fraction).roundToInt().coerceAtLeast(1)
+                        windowAnimations = R.style.Style_NoWindowAnimation
+                    }
+                } catch (_: Exception) {}
+            }
+            start()
+        }
+
+        // 4. Animate the search capsule directly into the widget's position and scale
+        outerRing.animate()
+            .translationX(targetDx)
+            .translationY(targetDy)
+            .scaleX(targetScaleX)
+            .scaleY(targetScaleY)
+            .alpha(0f)
+            .setDuration(165L)
+            .setInterpolator(DecelerateInterpolator(1.2f))
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    outerRing.animate().setListener(null)
+                    isClosingAnimating = false
+                    resetInputAndHideIme()
+                    resetMorphTransforms()
+                    moveTaskToBack(true)
+                    suppressTransitions()
+                }
+            })
+            .start()
     }
 
     override fun finish() {
