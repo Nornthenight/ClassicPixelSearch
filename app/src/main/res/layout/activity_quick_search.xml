@@ -9,155 +9,159 @@
     android:focusable="true"
     android:fitsSystemWindows="true">
 
-    <!-- Material 3 Expressive Floating Console Island -->
+    <!-- Reference #5: Minimalist Icon Dock Morph Container
+         Adaptive gravity: BOTTOM on phones (right above keyboard), CENTER on tablets -->
     <LinearLayout
         android:id="@+id/quick_panel_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="22dp"
-        android:layout_marginHorizontal="14dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="14dp"
         android:clickable="true"
         android:focusable="false"
+        android:gravity="center_horizontal"
         android:orientation="vertical">
 
+        <!-- 1. Upper Minimalist Icon Dock Pill (Hidden on empty query, unfolds on 1st character) -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_expressive_shell"
-            android:layout_width="match_parent"
+            android:id="@+id/card_icon_dock"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
-            app:cardCornerRadius="34dp"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+            app:cardCornerRadius="44dp"
             app:cardElevation="8dp"
             app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <HorizontalScrollView
+                android:id="@+id/scroll_icon_dock"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingHorizontal="12dp"
-                android:paddingTop="12dp"
-                android:paddingBottom="14dp">
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:scrollbars="none">
 
-                <!-- 1. Concentric Double-Frame Search Capsule -->
-                <FrameLayout
-                    android:id="@+id/quick_outer_ring"
-                    android:layout_width="match_parent"
-                    android:layout_height="62dp"
-                    android:padding="6dp">
-
-                    <LinearLayout
-                        android:id="@+id/quick_inner_pill"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingStart="13dp"
-                        android:paddingEnd="9dp">
-
-                        <ImageView
-                            android:id="@+id/img_quick_logo"
-                            android:layout_width="30dp"
-                            android:layout_height="30dp"
-                            android:contentDescription="@string/cd_google_search"
-                            android:padding="3dp"
-                            android:scaleType="centerInside"
-                            android:src="@drawable/ic_google_logo_ref" />
-
-                        <EditText
-                            android:id="@+id/edit_quick_search"
-                            android:layout_width="0dp"
-                            android:layout_height="match_parent"
-                            android:layout_weight="1"
-                            android:background="@null"
-                            android:gravity="center_vertical"
-                            android:hint="@string/quick_search_hint"
-                            android:imeOptions="actionSearch|flagNoExtractUi"
-                            android:importantForAutofill="no"
-                            android:inputType="text"
-                            android:maxLines="1"
-                            android:paddingStart="10dp"
-                            android:paddingEnd="6dp"
-                            android:singleLine="true"
-                            android:textColor="?attr/colorOnSurface"
-                            android:textColorHint="@color/widget_hint_text"
-                            android:textSize="16.5sp" />
-
-                        <ImageView
-                            android:id="@+id/btn_quick_clear_mic"
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:contentDescription="@string/cd_voice_search"
-                            android:padding="8dp"
-                            android:scaleType="centerInside"
-                            android:src="@drawable/ic_mic_ref" />
-
-                    </LinearLayout>
-                </FrameLayout>
-
-                <!-- 2. Expressive AI & Search Engine Pill Bar (Active engine always first) -->
-                <HorizontalScrollView
-                    android:id="@+id/scroll_ai_engines"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:clipToPadding="false"
-                    android:paddingHorizontal="2dp"
-                    android:scrollbars="none">
-
-                    <com.google.android.material.chip.ChipGroup
-                        android:id="@+id/chip_group_ai_engines"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        app:chipSpacingHorizontal="6dp"
-                        app:selectionRequired="true"
-                        app:singleLine="true"
-                        app:singleSelection="true" />
-                </HorizontalScrollView>
-
-                <!-- 3. Quick Launch (Recent / Frequent Apps) Container when input is empty -->
                 <LinearLayout
-                    android:id="@+id/container_recent_apps"
-                    android:layout_width="match_parent"
+                    android:id="@+id/row_dock_items"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:orientation="vertical"
-                    android:visibility="visible">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="8dp" />
+            </HorizontalScrollView>
+        </com.google.android.material.card.MaterialCardView>
 
-                    <TextView
-                        android:id="@+id/txt_recent_apps_header"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:layout_marginBottom="6dp"
-                        android:alpha="0.75"
-                        android:text="@string/quick_recent_apps_title"
-                        android:textAppearance="?attr/textAppearanceLabelMedium"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textStyle="bold" />
+        <!-- 2. Exact 1:1 Replica of Home Screen Search Widget Capsule -->
+        <LinearLayout
+            android:id="@+id/quick_outer_ring"
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="6dp">
 
-                    <LinearLayout
-                        android:id="@+id/row_recent_apps"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal" />
-                </LinearLayout>
+            <!-- Inner search capsule (Google G + EditText + Mic + Middle / Clear X) -->
+            <LinearLayout
+                android:id="@+id/quick_inner_pill"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="13dp"
+                android:paddingEnd="9dp">
 
-                <!-- 4. Dynamic Unified Results Stack (Calculator, App Matches #1..#4, Search/AI Card)
-                     Every item is rendered as a Material 3 Expressive card where the active selection
-                     is highlighted with a bold 2.5dp colorPrimary outline + Enter ↵ pill! -->
-                <LinearLayout
-                    android:id="@+id/list_expressive_results"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:orientation="vertical"
+                <ImageView
+                    android:id="@+id/img_quick_logo"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:contentDescription="@string/cd_google_search"
+                    android:padding="3dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_google_logo_ref" />
+
+                <EditText
+                    android:id="@+id/edit_quick_search"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:gravity="center_vertical"
+                    android:hint=""
+                    android:imeOptions="actionSearch|flagNoExtractUi"
+                    android:importantForAutofill="no"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="6dp"
+                    android:singleLine="true"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textColorHint="@color/widget_hint_text"
+                    android:textSize="16.5sp" />
+
+                <ImageView
+                    android:id="@+id/btn_quick_mic"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/cd_voice_search"
+                    android:padding="8dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_mic_ref" />
+
+                <ImageView
+                    android:id="@+id/btn_quick_middle"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/cd_gemini_app"
+                    android:padding="8dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_gemini_ref" />
+
+                <ImageView
+                    android:id="@+id/btn_quick_clear"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@android:string/cancel"
+                    android:padding="8dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_close_24"
                     android:visibility="gone" />
 
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+
+            <!-- Concentric ring gap spacer -->
+            <View
+                android:id="@+id/quick_ring_gap_spacer"
+                android:layout_width="6dp"
+                android:layout_height="match_parent" />
+
+            <!-- Right AI Circle Button (exact match with home screen widget) -->
+            <FrameLayout
+                android:id="@+id/quick_ai_circle_wrapper"
+                android:layout_width="50dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/btn_quick_ai"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cd_ai_mode"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_ai_mode_ref" />
+            </FrameLayout>
+
+        </LinearLayout>
 
     </LinearLayout>
 

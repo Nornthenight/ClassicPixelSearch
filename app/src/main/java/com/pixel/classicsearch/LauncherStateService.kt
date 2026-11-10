@@ -129,15 +129,6 @@ class LauncherStateService : AccessibilityService() {
                     highlightRunnable = null
                 }
                 ensureClassicSearchEngine()
-                if (WidgetPrefs.isQuickOverlayEnabled(this) && isAllAppsStateEvent(event)) {
-                    val now = SystemClock.elapsedRealtime()
-                    if (now - QuickSearchActivity.lastDismissRealtimeMs > 1200L &&
-                        now - lastOverlayLaunchTime > 550L
-                    ) {
-                        lastOverlayLaunchTime = now
-                        launchQuickOverlayNow("")
-                    }
-                }
             }
             AccessibilityEvent.TYPE_VIEW_CLICKED,
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
@@ -145,16 +136,6 @@ class LauncherStateService : AccessibilityService() {
                 handleSearchInputEvent(event)
             }
         }
-    }
-
-    private fun isAllAppsStateEvent(event: AccessibilityEvent): Boolean {
-        val desc = event.contentDescription?.toString()?.lowercase()?.trim() ?: ""
-        val textJoined = event.text?.joinToString(" ") { it.toString() }?.lowercase()?.trim() ?: ""
-        val combined = "$desc $textJoined"
-        return combined.contains("all apps") ||
-                combined.contains("apps list") ||
-                combined.contains("список приложений") ||
-                combined.contains("все приложения")
     }
 
     private fun launchQuickOverlayNow(queryText: String) {
@@ -182,16 +163,12 @@ class LauncherStateService : AccessibilityService() {
                 } else ""
                 val queryText = if (rawText.isNotEmpty() && rawText != hintText) rawText else ""
 
-                if (WidgetPrefs.isQuickOverlayEnabled(this)) {
+                // Only intercept on explicit finger click on the App Drawer search bar (never hijack swipe-up!)
+                if (WidgetPrefs.isQuickOverlayEnabled(this) &&
+                    event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED
+                ) {
                     val now = SystemClock.elapsedRealtime()
-                    val sinceDismiss = now - QuickSearchActivity.lastDismissRealtimeMs
-                    val sinceLaunch = now - lastOverlayLaunchTime
-                    val isExplicitClickOrText = event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
-                            (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED && queryText.isNotEmpty())
-                    val isFocusAfterCooldown = event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED &&
-                            sinceDismiss > 1200L
-
-                    if (sinceLaunch > 550L && (isExplicitClickOrText || isFocusAfterCooldown)) {
+                    if (now - lastOverlayLaunchTime > 500L) {
                         lastOverlayLaunchTime = now
                         try {
                             source.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS)
