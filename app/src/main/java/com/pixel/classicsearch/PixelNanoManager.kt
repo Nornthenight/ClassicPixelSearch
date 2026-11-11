@@ -44,17 +44,20 @@ object PixelNanoManager {
         val device = Build.DEVICE?.lowercase() ?: ""
 
         // Tensor platforms:
-        // Tensor G3: zuma
-        // Tensor G4: zumapro
+        // Tensor G1: gs101 (Pixel 6)
+        // Tensor G2: gs201 (Pixel 7, Pixel Tablet)
+        // Tensor G3: zuma (Pixel 8)
+        // Tensor G4: zumapro (Pixel 9)
         // Tensor G5: laguna (Pixel 10, 3nm TSMC)
         // Tensor G6: whipper (Pixel 11, 2nm TSMC)
-        val tensorIdentifiers = listOf("tensor", "zuma", "zumapro", "laguna", "whipper")
+        val tensorIdentifiers = listOf("tensor", "zuma", "zumapro", "laguna", "whipper", "gs201", "gs101")
         val matchesTensor = tensorIdentifiers.any {
             soc.contains(it) || hardware.contains(it) || board.contains(it)
         }
 
         // Direct device codename match fallback
         val pixelCodenames = listOf(
+            "tangorpro", "felix", "lynx", "panther", "cheetah", // Pixel Tablet, Fold, 7a, 7, 7 Pro
             "shiba", "husky", "akita",           // Pixel 8, 8 Pro, 8a
             "tokay", "caiman", "komodo", "comet", // Pixel 9, 9 Pro, 9 Pro XL, Fold
             "frankel", "blazer", "mustang", "rondo" // Pixel 10 series & forward
@@ -78,6 +81,8 @@ object PixelNanoManager {
             soc.contains("laguna") || hardware.contains("laguna") -> "Google Tensor G5 (3nm)"
             soc.contains("zumapro") || hardware.contains("zumapro") -> "Google Tensor G4"
             soc.contains("zuma") || hardware.contains("zuma") -> "Google Tensor G3"
+            soc.contains("gs201") || hardware.contains("tangorpro") -> "Google Tensor G2"
+            soc.contains("gs101") -> "Google Tensor G1"
             isTensorPixel() -> "Google Tensor (On-Device TPU)"
             else -> "Standard CPU/GPU"
         }
@@ -98,6 +103,22 @@ object PixelNanoManager {
         }
     }
 
+    fun getAiCoreVersionName(context: Context): String {
+        return try {
+            val pm = context.packageManager
+            val info = pm.getPackageInfo(AICORE_PACKAGE, 0)
+            info.versionName ?: ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    fun isAiCoreReady(context: Context): Boolean {
+        if (!isAiCoreInstalled(context)) return false
+        val ver = getAiCoreVersionName(context).lowercase()
+        return !ver.contains("stub")
+    }
+
     /**
      * Determines whether Gemini Nano is available on-device.
      */
@@ -109,6 +130,10 @@ object PixelNanoManager {
         if (!isAiCoreInstalled(context)) {
             // On Pixel 8/9/10/11, AICore is a system component. If not detected via PM, check fallback
             return NanoStatus.UNSUPPORTED_DEVICE
+        }
+
+        if (!isAiCoreReady(context)) {
+            return NanoStatus.DOWNLOADING
         }
 
         return NanoStatus.AVAILABLE

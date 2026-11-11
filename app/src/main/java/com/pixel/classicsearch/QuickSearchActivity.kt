@@ -139,6 +139,7 @@ class QuickSearchActivity : AppCompatActivity() {
     private var wasTier2Visible: Boolean = false
     private var isClosingAnimating: Boolean = false
     private var isFromAllApps: Boolean = false
+    private var isFromDockHijack: Boolean = false
     private var activeSourceBounds: Rect? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -199,6 +200,7 @@ class QuickSearchActivity : AppCompatActivity() {
 
     private fun handleLaunchConfiguration(incoming: Intent?) {
         isFromAllApps = incoming?.getBooleanExtra("from_all_apps", false) == true
+        isFromDockHijack = incoming?.getBooleanExtra("from_dock_hijack", false) == true
         val bounds = incoming?.sourceBounds
         if (bounds != null && !bounds.isEmpty) {
             activeSourceBounds = Rect(bounds)
@@ -488,10 +490,10 @@ class QuickSearchActivity : AppCompatActivity() {
         panelContainer.removeAllViews()
         val lp = panelContainer.layoutParams as FrameLayout.LayoutParams
         val screenWidthDp = resources.configuration.screenWidthDp
-        lp.width = if (screenWidthDp >= 600) {
-            (580 * density).roundToInt()
-        } else {
-            FrameLayout.LayoutParams.MATCH_PARENT
+        lp.width = when {
+            screenWidthDp >= 840 -> (720 * density).roundToInt().coerceAtMost(((screenWidthDp - 64) * density).roundToInt())
+            screenWidthDp >= 600 -> (600 * density).roundToInt()
+            else -> FrameLayout.LayoutParams.MATCH_PARENT
         }
 
         if (isFromAllApps) {
@@ -748,8 +750,9 @@ class QuickSearchActivity : AppCompatActivity() {
         }
 
         val appCandidates = AppLaunchCache.getCandidates(this)
+        val maxAppLimit = if (resources.configuration.screenWidthDp >= 600) 7 else 4
         val appMatches = if (bang == null && paramTrigger == null) {
-            AppSearchMatcher.findMatches(appCandidates, trimmed, limit = 4)
+            AppSearchMatcher.findMatches(appCandidates, trimmed, limit = maxAppLimit)
         } else {
             emptyList()
         }
@@ -784,9 +787,10 @@ class QuickSearchActivity : AppCompatActivity() {
 
         // --- TIER 2: Compact Contacts & Deep Settings/App-Functions Chips ---
         if (bang == null && paramTrigger == null) {
+            val maxTier2Limit = if (resources.configuration.screenWidthDp >= 600) 5 else 3
             // 1. Live Contacts search
             if (ContactSearchHelper.hasContactsPermission(this)) {
-                val matchedContacts = ContactSearchHelper.findMatchingContacts(this, trimmed, limit = 3)
+                val matchedContacts = ContactSearchHelper.findMatchingContacts(this, trimmed, limit = maxTier2Limit)
                 for (c in matchedContacts) {
                     tier2Items.add(SelectableTarget.Contact(c))
                 }
@@ -795,7 +799,7 @@ class QuickSearchActivity : AppCompatActivity() {
             }
 
             // 2. Deep Android Settings & App Shortcuts/Functions (excluding generic ecosystem clutter)
-            val deepMatches = DeepSearchCatalog.findDeepMatches(this, trimmed, limit = 3)
+            val deepMatches = DeepSearchCatalog.findDeepMatches(this, trimmed, limit = maxTier2Limit)
             for (deep in deepMatches) {
                 tier2Items.add(SelectableTarget.DeepChip(deep))
             }
@@ -1558,6 +1562,15 @@ class QuickSearchActivity : AppCompatActivity() {
 
         if (!animateToWidget) {
             resetInputAndHideIme()
+            if (isFromDockHijack) {
+                try {
+                    val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                        addCategory(Intent.CATEGORY_HOME)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    startActivity(homeIntent)
+                } catch (_: Exception) {}
+            }
             moveTaskToBack(true)
             suppressTransitions()
             return
@@ -1660,6 +1673,15 @@ class QuickSearchActivity : AppCompatActivity() {
                     isClosingAnimating = false
                     resetInputAndHideIme()
                     resetMorphTransforms()
+                    if (isFromDockHijack) {
+                        try {
+                            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                                addCategory(Intent.CATEGORY_HOME)
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            startActivity(homeIntent)
+                        } catch (_: Exception) {}
+                    }
                     moveTaskToBack(true)
                     suppressTransitions()
                 }

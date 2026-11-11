@@ -31,6 +31,7 @@ class LauncherStateService : AccessibilityService() {
     companion object {
         private const val TAG = "LauncherStateService"
         private const val PIXEL_LAUNCHER_PKG = "com.google.android.apps.nexuslauncher"
+        private const val GSA_PKG = "com.google.android.googlequicksearchbox"
         private const val ID_SEARCH_INPUT = "com.google.android.apps.nexuslauncher:id/input"
         private const val ID_SEARCH_ALL_APPS = "com.google.android.apps.nexuslauncher:id/search_container_all_apps"
         private const val ID_SEARCH_RESULTS = "com.google.android.apps.nexuslauncher:id/search_results_list_view"
@@ -54,7 +55,9 @@ class LauncherStateService : AccessibilityService() {
 
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or
+                AccessibilityEvent.TYPE_VIEW_CLICKED
+        info.packageNames = null
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                 AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
@@ -113,10 +116,72 @@ class LauncherStateService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-        if (!WidgetPrefs.isReplaceDockEnabled(this)) return
+        val pkg = event.packageName?.toString() ?: ""
+        val cls = event.className?.toString() ?: ""
+        val replaceEnabled = WidgetPrefs.isReplaceDockEnabled(this)
+        Log.d(TAG, "onAccessibilityEvent: type=${event.eventType} pkg=$pkg cls=$cls replaceEnabled=$replaceEnabled")
+        if (!replaceEnabled) return
 
-        val pkg = event.packageName?.toString()
-        if (pkg != null && pkg != PIXEL_LAUNCHER_PKG) {
+        // 1. Android 17+ Pixel Launcher Dock Interception:
+        // NexusLauncher in Android 17 bypasses selected_search_engine and directly launches
+        // GoogleAppActivity / InternalGoogleAppActivityEntrypoint when the dock search capsule is tapped.
+        if (pkg == GSA_PKG && (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED)) {
+            val isSearchLaunch = cls.contains("GoogleAppActivity") ||
+                    cls.contains("InternalGoogleAppActivityEntrypoint") ||
+                    event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED
+            if (isSearchLaunch) {
+                val now = SystemClock.elapsedRealtime()
+                if (now - QuickSearchActivity.lastDismissRealtimeMs > 1200L &&
+                    now - lastOverlayLaunchTime > 500L &&
+                    WidgetPrefs.isQuickOverlayEnabled(this)
+                ) {
+                    lastOverlayLaunchTime = now
+                    Log.i(TAG, "Android 17 dock search launch intercepted ($cls) -> launching QuickSearchActivity")
+                    val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
+                        putExtra("from_widget", true)
+                        putExtra("from_dock_hijack", true)
+                        addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                    Intent.FLAG_ACTIVITY_NO_ANIMATION
+                        )
+                    }
+                    startActivity(overlayIntent)
+                    return
+                }
+            }
+            return
+        }
+
+        if (pkg != PIXEL_LAUNCHER_PKG) {
+            return
+        }
+
+        // Direct tap on NexusLauncher dock search bar container
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            val source = try { event.source } catch (_: Exception) { null }
+            if (source != null) {
+                try {
+                    val viewId = source.viewIdResourceName ?: ""
+                    if (viewId.contains("search_container_hotseat") || viewId.contains("search_container_workspace")) {
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - QuickSearchActivity.lastDismissRealtimeMs > 1200L &&
+                            now - lastOverlayLaunchTime > 500L &&
+                            WidgetPrefs.isQuickOverlayEnabled(this)
+                        ) {
+                            lastOverlayLaunchTime = now
+                            Log.i(TAG, "NexusLauncher dock search clicked -> opening QuickSearchActivity")
+                            val rect = android.graphics.Rect()
+                            try { source.getBoundsInScreen(rect) } catch (_: Exception) {}
+                            launchQuickOverlayNow("", rect, fromAllApps = false)
+                            return
+                        }
+                    }
+                } finally {
+                    try { source.recycle() } catch (_: Exception) {}
+                }
+            }
             return
         }
 
@@ -134,9 +199,15 @@ class LauncherStateService : AccessibilityService() {
         }
     }
 
-    private fun launchQuickOverlayNow(queryText: String, sourceRect: android.graphics.Rect?) {
+    private fun launchQuickOverlayNow(
+        queryText: String,
+        sourceRect: android.graphics.Rect?,
+        fromAllApps: Boolean = true
+    ) {
         val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
-            putExtra("from_all_apps", true)
+            putExtra("from_all_apps", fromAllApps)
+            putExtra("from_widget", !fromAllApps)
+            putExtra("from_dock_hijack", true)
             if (queryText.isNotEmpty()) {
                 putExtra("query", queryText)
             }

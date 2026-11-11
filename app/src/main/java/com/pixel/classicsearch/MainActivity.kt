@@ -310,6 +310,11 @@ class MainActivity : AppCompatActivity() {
                     txtGeminiStatusDesc.text = getString(R.string.status_cloud_ready)
                     txtGeminiStatusDesc.setTextColor(Color.parseColor("#1976D2"))
                 }
+                nanoStatus == PixelNanoManager.NanoStatus.DOWNLOADING -> {
+                    val gen = PixelNanoManager.getTensorGenerationName()
+                    txtGeminiStatusDesc.text = "Gemini Nano ⏳ ($gen, stub/загрузка) — задайте API ключ"
+                    txtGeminiStatusDesc.setTextColor(Color.parseColor("#E65100"))
+                }
                 else -> {
                     txtGeminiStatusDesc.text = getString(R.string.status_key_needed)
                     txtGeminiStatusDesc.setTextColor(Color.parseColor("#E65100"))
