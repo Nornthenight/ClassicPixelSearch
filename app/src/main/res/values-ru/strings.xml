@@ -10,7 +10,7 @@
     <string name="cd_ai_mode">Режим ИИ</string>
 
     <string name="settings_title">Pixel Search</string>
-    <string name="badge_beta">АЛЬФА</string>
+    <string name="badge_beta">БЕТА</string>
 
     <string name="preview_label">Предпросмотр (тапните по строке для теста QuickSearch)</string>
 
@@ -89,4 +89,17 @@
     <string name="btn_add_widget">Добавить виджет на экран</string>
     <string name="btn_save">Применить</string>
     <string name="accessibility_service_description">Обеспечивает работу поиска в меню приложений лаунчера, сохраняя виджет в доке.</string>
+
+    <!-- Gemini и Умные ответы -->
+    <string name="section_gemini">Gemini и Умные ответы</string>
+    <string name="option_gemini_enabled">Карточка умных ответов Gemini</string>
+    <string name="option_gemini_desc">Мгновенный стриминг ответов от набортного Gemini Nano на Pixel 8/9/10/11 или облачного Gemini Flash</string>
+    <string name="label_gemini_status">Статус движка</string>
+    <string name="label_gemini_api_key">Ключ Gemini API</string>
+    <string name="dialog_gemini_api_key_title">Google Gemini API Key</string>
+    <string name="dialog_gemini_api_key_hint">Вставьте ключ Google AI Studio (AIzaSy…)</string>
+    <string name="status_nano_available">Gemini Nano Активен ⚡ (Локальный TPU)</string>
+    <string name="status_cloud_ready">Gemini Cloud Активен ☁️</string>
+    <string name="status_key_needed">Укажите API Key для облачных ответов</string>
+    <string name="gemini_copied">Ответ Gemini скопирован в буфер</string>
 </resources>

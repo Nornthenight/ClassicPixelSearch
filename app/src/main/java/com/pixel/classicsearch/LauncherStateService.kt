@@ -170,6 +170,9 @@ class LauncherStateService : AccessibilityService() {
                     queryText.isNotEmpty()
                 ) {
                     val now = SystemClock.elapsedRealtime()
+                    if (now - QuickSearchActivity.lastDismissRealtimeMs < 1200L) {
+                        return
+                    }
                     if (now - lastOverlayLaunchTime > 450L) {
                         lastOverlayLaunchTime = now
                         val rect = android.graphics.Rect()
@@ -342,35 +345,41 @@ class LauncherStateService : AccessibilityService() {
 
     private fun applyEngine(targetEngine: String) {
         if (currentEngine == targetEngine) return
-        currentEngine = targetEngine
+        if (executor.isShutdown) return
 
-        executor.execute {
-            try {
-                if (!WidgetPrefs.isReplaceDockEnabled(this)) {
-                    currentEngine = null
-                    return@execute
-                }
-                val currentInSettings = Settings.Secure.getString(
-                    contentResolver,
-                    ServiceHelper.KEY_SELECTED_SEARCH_ENGINE
-                )
-                if (LauncherEnginePolicy.shouldUpdateEngine(currentInSettings, targetEngine)) {
-                    val wrote = Settings.Secure.putString(
-                        contentResolver,
-                        ServiceHelper.KEY_SELECTED_SEARCH_ENGINE,
-                        targetEngine
-                    )
-                    if (wrote) {
-                        currentEngine = targetEngine
-                        Log.i(TAG, "Enforced selected_search_engine -> $targetEngine")
+        try {
+            executor.execute {
+                try {
+                    if (!WidgetPrefs.isReplaceDockEnabled(this)) {
+                        currentEngine = null
+                        return@execute
                     }
-                } else {
-                    currentEngine = targetEngine
+                    val currentInSettings = Settings.Secure.getString(
+                        contentResolver,
+                        ServiceHelper.KEY_SELECTED_SEARCH_ENGINE
+                    )
+                    if (LauncherEnginePolicy.shouldUpdateEngine(currentInSettings, targetEngine)) {
+                        val wrote = Settings.Secure.putString(
+                            contentResolver,
+                            ServiceHelper.KEY_SELECTED_SEARCH_ENGINE,
+                            targetEngine
+                        )
+                        if (wrote) {
+                            currentEngine = targetEngine
+                            Log.i(TAG, "Enforced selected_search_engine -> $targetEngine")
+                        } else {
+                            currentEngine = null
+                        }
+                    } else {
+                        currentEngine = targetEngine
+                    }
+                } catch (e: Exception) {
+                    currentEngine = null
+                    Log.e(TAG, "Failed to update selected_search_engine to $targetEngine", e)
                 }
-            } catch (e: Exception) {
-                currentEngine = null
-                Log.e(TAG, "Failed to update selected_search_engine to $targetEngine", e)
             }
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
+            // Service teardown in progress, safe to drop trailing trigger
         }
     }
 

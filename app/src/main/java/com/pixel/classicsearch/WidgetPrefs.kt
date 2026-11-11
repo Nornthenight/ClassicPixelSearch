@@ -34,6 +34,10 @@ object WidgetPrefs {
     private const val KEY_WIDGET_BOUNDS_RIGHT = "widget_bounds_right"
     private const val KEY_WIDGET_BOUNDS_BOTTOM = "widget_bounds_bottom"
 
+    // Feature 6: Gemini On-Device & Cloud Smart Answers
+    private const val KEY_GEMINI_ENABLED = "gemini_smart_answers_enabled"
+    private const val KEY_GEMINI_API_KEY = "gemini_api_key"
+
     // Surface styles
     const val SURFACE_DEEP_RING = 0    // Default: system_accent2_300 frame + system_neutral1_10 inner
     const val SURFACE_PASTEL = 1       // system_accent1_200 frame + system_neutral1_10 inner
@@ -289,5 +293,31 @@ object WidgetPrefs {
         val bottom = prefs.getInt(KEY_WIDGET_BOUNDS_BOTTOM, -1)
         if (left < 0 || top < 0 || right <= left || bottom <= top) return null
         return android.graphics.Rect(left, top, right, bottom)
+    }
+
+    // --- Feature 6: Gemini Smart Answers ---
+
+    fun isGeminiEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_GEMINI_ENABLED, true)
+    }
+
+    fun setGeminiEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_GEMINI_ENABLED, enabled)
+            .apply()
+    }
+
+    fun getGeminiApiKey(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_GEMINI_API_KEY, "") ?: ""
+    }
+
+    fun setGeminiApiKey(context: Context, key: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_GEMINI_API_KEY, key.trim())
+            .apply()
     }
 }

@@ -76,6 +76,10 @@ class MainActivity : AppCompatActivity() {
 
         val switchQuickOverlay = findViewById<MaterialSwitch>(R.id.switch_quick_overlay)
         val btnTestQuickOverlay = findViewById<Button>(R.id.btn_test_quick_overlay)
+        val switchGeminiEnabled = findViewById<MaterialSwitch>(R.id.switch_gemini_enabled)
+        val txtGeminiStatusDesc = findViewById<TextView>(R.id.txt_gemini_status_desc)
+        val rowGeminiApiKey = findViewById<View>(R.id.row_gemini_api_key)
+        val txtGeminiApiKeyDesc = findViewById<TextView>(R.id.txt_gemini_api_key_desc)
         val rowA11yStatus = findViewById<View>(R.id.row_a11y_status)
         val rgFrameStyle = findViewById<RadioGroup>(R.id.rg_frame_style)
         val rgIconStyle = findViewById<RadioGroup>(R.id.rg_icon_style)
@@ -276,6 +280,7 @@ class MainActivity : AppCompatActivity() {
 
         fun autoSaveAndRefreshWidget() {
             WidgetPrefs.setQuickOverlayEnabled(this, switchQuickOverlay.isChecked)
+            WidgetPrefs.setGeminiEnabled(this, switchGeminiEnabled.isChecked)
             WidgetPrefs.setSurfaceStyle(this, getSelectedSurfaceStyle())
             WidgetPrefs.setIconStyle(this, getSelectedIconStyle())
             WidgetPrefs.setOpacityPercent(this, seekOpacity.progress)
@@ -290,6 +295,57 @@ class MainActivity : AppCompatActivity() {
             WidgetPrefs.setDefaultSearchAi(this, selectedDefaultSearchAi)
             WidgetPrefs.setReplaceDockEnabled(this, switchReplaceDock.isChecked)
             ClassicSearchWidgetProvider.updateAllWidgets(this)
+        }
+
+        fun refreshGeminiUi() {
+            val nanoStatus = PixelNanoManager.checkStatus(this)
+            val currentKey = WidgetPrefs.getGeminiApiKey(this)
+            when {
+                nanoStatus == PixelNanoManager.NanoStatus.AVAILABLE -> {
+                    val gen = PixelNanoManager.getTensorGenerationName()
+                    txtGeminiStatusDesc.text = "Gemini Nano ⚡ ($gen)"
+                    txtGeminiStatusDesc.setTextColor(Color.parseColor("#2E7D32"))
+                }
+                currentKey.isNotBlank() -> {
+                    txtGeminiStatusDesc.text = getString(R.string.status_cloud_ready)
+                    txtGeminiStatusDesc.setTextColor(Color.parseColor("#1976D2"))
+                }
+                else -> {
+                    txtGeminiStatusDesc.text = getString(R.string.status_key_needed)
+                    txtGeminiStatusDesc.setTextColor(Color.parseColor("#E65100"))
+                }
+            }
+            txtGeminiApiKeyDesc.text = if (currentKey.isBlank()) {
+                "Не задан"
+            } else {
+                "${currentKey.take(6)}••••${currentKey.takeLast(4)}"
+            }
+        }
+
+        switchGeminiEnabled.isChecked = WidgetPrefs.isGeminiEnabled(this)
+        refreshGeminiUi()
+
+        switchGeminiEnabled.setOnCheckedChangeListener { v, _ ->
+            performPreviewHaptic(v)
+            autoSaveAndRefreshWidget()
+        }
+
+        rowGeminiApiKey.setOnClickListener { v ->
+            performPreviewHaptic(v)
+            val input = android.widget.EditText(this).apply {
+                setText(WidgetPrefs.getGeminiApiKey(this@MainActivity))
+                hint = getString(R.string.dialog_gemini_api_key_hint)
+                setSingleLine()
+            }
+            AlertDialog.Builder(this)
+                .setTitle(R.string.dialog_gemini_api_key_title)
+                .setView(input)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    WidgetPrefs.setGeminiApiKey(this, input.text.toString().trim())
+                    refreshGeminiUi()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
 
         refreshActionLabels()

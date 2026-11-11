@@ -133,6 +133,17 @@ class AppSearchMatcherTest {
     }
 
     @Test
+    fun `multi-word queries matching app title words return correct app`() {
+        val result = AppSearchMatcher.findBestMatch(sampleCandidates, "Play Store")
+        assertNotNull(result)
+        assertEquals("com.android.vending", result?.packageName)
+
+        val photos = AppSearchMatcher.findBestMatch(sampleCandidates, "Google Photos")
+        assertNotNull(photos)
+        assertEquals("com.google.android.apps.photos", photos?.packageName)
+    }
+
+    @Test
     fun `queries with question mark or bang prefix return null for AI routing`() {
         assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "what is this?"))
         assertNull(AppSearchMatcher.findBestMatch(sampleCandidates, "chrome?"))

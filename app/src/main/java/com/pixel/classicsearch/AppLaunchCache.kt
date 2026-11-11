@@ -4,13 +4,13 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
-import java.util.concurrent.ConcurrentHashMap
+import android.util.LruCache
 import java.util.concurrent.Executors
 
 /**
  * High-speed in-memory cache of launchable applications and their icons.
- * Eliminates PackageManager IPC latency during live typing in QuickSearchActivity
- * and Enter key interception in LauncherStateService.
+ * Uses LruCache of Drawable.ConstantState to completely eliminate Activity/View
+ * callback leaks and bound memory usage.
  */
 object AppLaunchCache {
 
@@ -25,7 +25,8 @@ object AppLaunchCache {
     @Volatile
     private var isRefreshing: Boolean = false
 
-    private val iconCache = ConcurrentHashMap<String, Drawable>()
+    // Cache immutable ConstantState to prevent Context/View leaks via Drawable.Callback
+    private val iconCache = LruCache<String, Drawable.ConstantState>(150)
     private val bgExecutor = Executors.newSingleThreadExecutor()
 
     /**
@@ -89,10 +90,14 @@ object AppLaunchCache {
     }
 
     fun getAppIcon(context: Context, packageName: String): Drawable? {
-        iconCache[packageName]?.let { return it }
+        iconCache.get(packageName)?.let { state ->
+            return state.newDrawable(context.resources).mutate()
+        }
         return try {
             val drawable = context.packageManager.getApplicationIcon(packageName)
-            iconCache[packageName] = drawable
+            drawable.constantState?.let { state ->
+                iconCache.put(packageName, state)
+            }
             drawable
         } catch (_: Exception) {
             null

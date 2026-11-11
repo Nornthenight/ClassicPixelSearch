@@ -41,7 +41,11 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.graphics.ColorUtils
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -93,6 +97,27 @@ class QuickSearchActivity : AppCompatActivity() {
     private lateinit var cardIconDock: MaterialCardView
     private lateinit var scrollIconDock: HorizontalScrollView
     private lateinit var rowDockItems: LinearLayout
+
+    // Gemini Smart Answers View
+    private lateinit var cardGeminiAnswer: MaterialCardView
+    private lateinit var txtGeminiBadge: TextView
+    private lateinit var txtGeminiContent: TextView
+    private lateinit var btnCopyGemini: ImageView
+    private lateinit var btnCloseGemini: ImageView
+
+    private var geminiDebounceJob: Job? = null
+    private var geminiStreamJob: Job? = null
+    private var blurDismissAnimator: ValueAnimator? = null
+
+    // Theme color cache (eliminates 8x resolveThemeColor allocations per keystroke)
+    private var colorPrimary: Int = 0
+    private var colorOnPrimary: Int = 0
+    private var colorSecondaryContainer: Int = 0
+    private var colorOnSecondaryContainer: Int = 0
+    private var colorSurfaceHighest: Int = 0
+    private var colorOnSurface: Int = 0
+    private var colorOnSurfaceVariant: Int = 0
+    private var colorOutlineVariant: Int = 0
 
     private lateinit var outerRing: LinearLayout
     private lateinit var innerPill: LinearLayout
@@ -194,6 +219,9 @@ class QuickSearchActivity : AppCompatActivity() {
     }
 
     private fun resetMorphTransforms() {
+        blurDismissAnimator?.cancel()
+        blurDismissAnimator = null
+
         panelContainer.animate().cancel()
         outerRing.animate().cancel()
         cardIconDock.animate().cancel()
@@ -220,6 +248,12 @@ class QuickSearchActivity : AppCompatActivity() {
         cardDeepChips.translationY = 0f
         cardDeepChips.scaleX = 1f
         cardDeepChips.scaleY = 1f
+
+        cardGeminiAnswer.animate().cancel()
+        cardGeminiAnswer.alpha = 1f
+        cardGeminiAnswer.translationY = 0f
+        cardGeminiAnswer.scaleX = 1f
+        cardGeminiAnswer.scaleY = 1f
     }
 
     private fun playSeamlessEntrance() {
@@ -286,7 +320,7 @@ class QuickSearchActivity : AppCompatActivity() {
             ?: ""
         if (initialQuery.isNotEmpty()) {
             editSearch.setText(initialQuery)
-            editSearch.setSelection(initialQuery.length)
+            editSearch.setSelection(editSearch.text?.length ?: 0)
         } else if (!editSearch.text.isNullOrEmpty()) {
             editSearch.setText("")
         } else {
@@ -328,6 +362,13 @@ class QuickSearchActivity : AppCompatActivity() {
         ringGapSpacer = findViewById(R.id.quick_ring_gap_spacer)
         aiCircleWrapper = findViewById(R.id.quick_ai_circle_wrapper)
         btnAi = findViewById(R.id.btn_quick_ai)
+
+        cardGeminiAnswer = findViewById(R.id.card_gemini_answer)
+        txtGeminiBadge = findViewById(R.id.txt_gemini_badge)
+        txtGeminiContent = findViewById(R.id.txt_gemini_content)
+        txtGeminiContent.movementMethod = android.text.method.ScrollingMovementMethod.getInstance()
+        btnCopyGemini = findViewById(R.id.btn_copy_gemini)
+        btnCloseGemini = findViewById(R.id.btn_close_gemini)
     }
 
     private fun setupBackNavigation() {
@@ -362,7 +403,14 @@ class QuickSearchActivity : AppCompatActivity() {
         // Frosted glass outer & inner drawables for the search capsule (78% translucent glass + specular stroke)
         val baseOuterColor = WidgetDrawableRenderer.getOuterColor(this, surfaceStyle)
         val baseInnerColor = WidgetDrawableRenderer.getInnerColor(this, surfaceStyle)
-        val colorOnSurface = resolveThemeColor(com.google.android.material.R.attr.colorOnSurface)
+        colorPrimary = resolveThemeColor(com.google.android.material.R.attr.colorPrimary)
+        colorOnPrimary = resolveThemeColor(com.google.android.material.R.attr.colorOnPrimary)
+        colorSecondaryContainer = resolveThemeColor(com.google.android.material.R.attr.colorSecondaryContainer)
+        colorOnSecondaryContainer = resolveThemeColor(com.google.android.material.R.attr.colorOnSecondaryContainer)
+        colorSurfaceHighest = resolveThemeColor(com.google.android.material.R.attr.colorSurfaceContainerHighest)
+        colorOnSurface = resolveThemeColor(com.google.android.material.R.attr.colorOnSurface)
+        colorOnSurfaceVariant = resolveThemeColor(com.google.android.material.R.attr.colorOnSurfaceVariant)
+        colorOutlineVariant = resolveThemeColor(com.google.android.material.R.attr.colorOutlineVariant)
         val glassSpecularStroke = ColorUtils.setAlphaComponent(colorOnSurface, 58) // ~23% specular edge highlight
 
         outerRing.background = GradientDrawable().apply {
@@ -396,6 +444,11 @@ class QuickSearchActivity : AppCompatActivity() {
         cardDeepChips.setCardBackgroundColor(frostedPillFill)
         cardDeepChips.strokeColor = frostedPillStroke
         cardDeepChips.strokeWidth = (1.2f * density).roundToInt().coerceAtLeast(1)
+
+        cardGeminiAnswer.radius = 22f * density
+        cardGeminiAnswer.strokeWidth = (1.3f * density).roundToInt().coerceAtLeast(1)
+        cardGeminiAnswer.strokeColor = colorPrimary
+        cardGeminiAnswer.setCardBackgroundColor(ColorUtils.setAlphaComponent(colorSurfaceHighest, 215))
 
         outerRing.setPadding(gapPx, gapPx, gapPx, gapPx)
         ringGapSpacer.layoutParams = ringGapSpacer.layoutParams.apply {
@@ -455,9 +508,16 @@ class QuickSearchActivity : AppCompatActivity() {
             }
             cardDeepChips.layoutParams = deepLp
 
+            val geminiLp = (cardGeminiAnswer.layoutParams as LinearLayout.LayoutParams).apply {
+                topMargin = (8 * density).roundToInt()
+                bottomMargin = 0
+            }
+            cardGeminiAnswer.layoutParams = geminiLp
+
             panelContainer.addView(outerRing)
             panelContainer.addView(cardIconDock)
             panelContainer.addView(cardDeepChips)
+            panelContainer.addView(cardGeminiAnswer)
 
             lp.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             val statusBarOffset = getStatusBarHeightPx()
@@ -472,6 +532,12 @@ class QuickSearchActivity : AppCompatActivity() {
         } else {
             // Home Screen Widget launch: anchored at BOTTOM right above the keyboard;
             // results unfold ABOVE the search capsule
+            val geminiLp = (cardGeminiAnswer.layoutParams as LinearLayout.LayoutParams).apply {
+                topMargin = 0
+                bottomMargin = (8 * density).roundToInt()
+            }
+            cardGeminiAnswer.layoutParams = geminiLp
+
             val deepLp = (cardDeepChips.layoutParams as LinearLayout.LayoutParams).apply {
                 topMargin = 0
                 bottomMargin = (8 * density).roundToInt()
@@ -484,6 +550,7 @@ class QuickSearchActivity : AppCompatActivity() {
             }
             cardIconDock.layoutParams = dockLp
 
+            panelContainer.addView(cardGeminiAnswer)
             panelContainer.addView(cardDeepChips)
             panelContainer.addView(cardIconDock)
             panelContainer.addView(outerRing)
@@ -524,7 +591,24 @@ class QuickSearchActivity : AppCompatActivity() {
         panelContainer.setOnClickListener { /* consume */ }
         cardIconDock.setOnClickListener { /* consume */ }
         cardDeepChips.setOnClickListener { /* consume */ }
+        cardGeminiAnswer.setOnClickListener { /* consume */ }
         outerRing.setOnClickListener { editSearch.requestFocus() }
+
+        btnCopyGemini.setOnClickListener { v ->
+            performHaptic(v)
+            val answerText = txtGeminiContent.text?.toString() ?: ""
+            if (answerText.isNotBlank()) {
+                val clip = ClipData.newPlainText("Gemini Answer", answerText)
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                cm?.setPrimaryClip(clip)
+                Toast.makeText(this, R.string.gemini_copied, Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnCloseGemini.setOnClickListener { v ->
+            performHaptic(v)
+            hideGeminiAnswerCard(animate = true)
+        }
 
         imgLogo.setOnClickListener { v ->
             performHaptic(v)
@@ -645,6 +729,7 @@ class QuickSearchActivity : AppCompatActivity() {
             cardDeepChips.visibility = View.GONE
             rowDockItems.removeAllViews()
             rowDeepChips.removeAllViews()
+            hideGeminiAnswerCard(animate = false)
             return
         }
 
@@ -670,6 +755,16 @@ class QuickSearchActivity : AppCompatActivity() {
         }
         for (app in appMatches) {
             tier1Items.add(SelectableTarget.App(app))
+        }
+
+        val semanticAction = if (bang == null && paramTrigger == null && appMatches.isEmpty()) {
+            GeminiSearchEngine.findSemanticAction(trimmed, appCandidates)
+        } else null
+
+        if (semanticAction != null) {
+            val candidate = appCandidates.firstOrNull { it.packageName == semanticAction.targetPackage }
+                ?: AppSearchCandidate(semanticAction.targetPackage, semanticAction.label)
+            tier1Items.add(0, SelectableTarget.App(candidate))
         }
 
         // Add ONLY 1 single default Search/AI item at the end of Tier 1 (zero unmatched icon clutter!)
@@ -772,7 +867,94 @@ class QuickSearchActivity : AppCompatActivity() {
             rowDeepChips.removeAllViews()
         }
 
+        val hasAnyLocalMatches = appMatches.isNotEmpty() ||
+                (ContactSearchHelper.hasContactsPermission(this) && tier2Items.any { it is SelectableTarget.Contact }) ||
+                mathRes != null ||
+                bang != null ||
+                paramTrigger != null ||
+                semanticAction != null
+
+        val isGeminiActive = GeminiSearchEngine.getActiveEngineSource(this) != GeminiSearchEngine.EngineSource.NONE
+        if (!hasAnyLocalMatches && trimmed.length >= 3 && isGeminiActive) {
+            geminiDebounceJob?.cancel()
+            geminiDebounceJob = lifecycleScope.launch {
+                delay(500L)
+                if (!isClosingAnimating) {
+                    startGeminiAnswerStream(trimmed)
+                }
+            }
+        } else {
+            hideGeminiAnswerCard(animate = cardGeminiAnswer.visibility == View.VISIBLE)
+        }
+
         renderDualFrostedBlocks(animateMorph = false)
+    }
+
+    private fun hideGeminiAnswerCard(animate: Boolean) {
+        geminiDebounceJob?.cancel()
+        geminiStreamJob?.cancel()
+        if (cardGeminiAnswer.visibility == View.GONE) return
+        if (animate) {
+            cardGeminiAnswer.animate()
+                .alpha(0f)
+                .scaleY(0.9f)
+                .setDuration(120L)
+                .withEndAction {
+                    cardGeminiAnswer.visibility = View.GONE
+                    cardGeminiAnswer.alpha = 1f
+                    cardGeminiAnswer.scaleY = 1f
+                }
+                .start()
+        } else {
+            cardGeminiAnswer.visibility = View.GONE
+        }
+    }
+
+    private fun startGeminiAnswerStream(query: String) {
+        val engineSource = GeminiSearchEngine.getActiveEngineSource(this)
+        if (engineSource == GeminiSearchEngine.EngineSource.NONE) return
+
+        geminiStreamJob?.cancel()
+        txtGeminiBadge.text = when (engineSource) {
+            GeminiSearchEngine.EngineSource.NANO_ON_DEVICE -> {
+                val gen = PixelNanoManager.getTensorGenerationName()
+                "Gemini Nano ⚡ ($gen)"
+            }
+            GeminiSearchEngine.EngineSource.CLOUD_GEMINI -> "Gemini Cloud ☁️"
+            else -> "Gemini ✨"
+        }
+        txtGeminiContent.text = "…"
+        cardGeminiAnswer.animate().cancel()
+        cardGeminiAnswer.visibility = View.VISIBLE
+        cardGeminiAnswer.alpha = 0f
+        cardGeminiAnswer.scaleY = 0.92f
+        cardGeminiAnswer.animate()
+            .alpha(1f)
+            .scaleY(1f)
+            .setDuration(140L)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+
+        geminiStreamJob = lifecycleScope.launch {
+            var fullAnswer = ""
+            try {
+                GeminiSearchEngine.streamAnswer(this@QuickSearchActivity, query).collect { (_, chunk) ->
+                    fullAnswer += chunk
+                    txtGeminiContent.text = fullAnswer
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Normal cancellation on new keystroke or overlay dismissal
+                throw e
+            } catch (e: Exception) {
+                txtGeminiContent.text = "Ошибка генерации ответа: ${e.localizedMessage ?: "Сетевая ошибка"}"
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        geminiDebounceJob?.cancel()
+        geminiStreamJob?.cancel()
+        super.onDestroy()
     }
 
     private fun shouldOfferContactsPermissionChip(query: String, noAppsMatched: Boolean): Boolean {
@@ -814,14 +996,6 @@ class QuickSearchActivity : AppCompatActivity() {
         rowDeepChips.removeAllViews()
 
         val density = resources.displayMetrics.density
-        val colorPrimary = resolveThemeColor(com.google.android.material.R.attr.colorPrimary)
-        val colorOnPrimary = resolveThemeColor(com.google.android.material.R.attr.colorOnPrimary)
-        val colorSecondaryContainer = resolveThemeColor(com.google.android.material.R.attr.colorSecondaryContainer)
-        val colorOnSecondaryContainer = resolveThemeColor(com.google.android.material.R.attr.colorOnSecondaryContainer)
-        val colorSurfaceHighest = resolveThemeColor(com.google.android.material.R.attr.colorSurfaceContainerHighest)
-        val colorOnSurface = resolveThemeColor(com.google.android.material.R.attr.colorOnSurface)
-        val colorOnSurfaceVariant = resolveThemeColor(com.google.android.material.R.attr.colorOnSurfaceVariant)
-        val colorOutlineVariant = resolveThemeColor(com.google.android.material.R.attr.colorOutlineVariant)
 
         // =====================================================================
         // RENDER TIER 1: Primary App Icon Dock
@@ -1340,6 +1514,8 @@ class QuickSearchActivity : AppCompatActivity() {
         super.onStop()
         lastDismissRealtimeMs = SystemClock.elapsedRealtime()
         isClosingAnimating = false
+        geminiDebounceJob?.cancel()
+        geminiStreamJob?.cancel()
         resetInputAndHideIme()
         resetMorphTransforms()
     }
@@ -1360,8 +1536,11 @@ class QuickSearchActivity : AppCompatActivity() {
         wasTier2Visible = false
         cardIconDock.visibility = View.GONE
         cardDeepChips.visibility = View.GONE
+        cardGeminiAnswer.visibility = View.GONE
         rowDockItems.removeAllViews()
         rowDeepChips.removeAllViews()
+        geminiDebounceJob?.cancel()
+        geminiStreamJob?.cancel()
     }
 
     /**
@@ -1371,6 +1550,8 @@ class QuickSearchActivity : AppCompatActivity() {
     private fun closeOverlay(animateToWidget: Boolean = true) {
         if (isClosingAnimating) return
         lastDismissRealtimeMs = SystemClock.elapsedRealtime()
+        geminiDebounceJob?.cancel()
+        geminiStreamJob?.cancel()
 
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(editSearch.windowToken, 0)
@@ -1387,6 +1568,17 @@ class QuickSearchActivity : AppCompatActivity() {
         val foldDir = if (isFromAllApps) -1f else 1f
 
         updateRightCapsuleButtons(isEmpty = true)
+
+        if (cardGeminiAnswer.visibility == View.VISIBLE) {
+            cardGeminiAnswer.animate()
+                .translationY(14f * density * foldDir)
+                .scaleX(0.88f)
+                .scaleY(0.88f)
+                .alpha(0f)
+                .setDuration(105L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
 
         if (cardDeepChips.visibility == View.VISIBLE) {
             cardDeepChips.animate()
@@ -1436,8 +1628,9 @@ class QuickSearchActivity : AppCompatActivity() {
             targetScaleY = 0.97f
         }
 
+        blurDismissAnimator?.cancel()
         val startBlur = (56 * density).roundToInt()
-        ValueAnimator.ofFloat(1f, 0f).apply {
+        blurDismissAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
             duration = 155L
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->

@@ -10,7 +10,7 @@
     <string name="cd_ai_mode">Google Search AI Mode</string>
 
     <string name="settings_title">Pixel Search</string>
-    <string name="badge_beta">ALPHA</string>
+    <string name="badge_beta">BETA</string>
 
     <string name="preview_label">Preview (Tap search bar to test QuickSearch)</string>
 
@@ -89,4 +89,17 @@
     <string name="btn_add_widget">Add Widget to Home Screen</string>
     <string name="btn_save">Apply</string>
     <string name="accessibility_service_description">Enables seamless Google OneSearch in Pixel Launcher drawer while preserving the custom dock search bar.</string>
+
+    <!-- Gemini & Smart Answers -->
+    <string name="section_gemini">Gemini &amp; Smart Answers</string>
+    <string name="option_gemini_enabled">Smart Answers Card</string>
+    <string name="option_gemini_desc">Stream on-device answers with Gemini Nano on Pixel 8/9/10/11, or cloud Gemini Flash</string>
+    <string name="label_gemini_status">Engine Status</string>
+    <string name="label_gemini_api_key">Gemini API Key</string>
+    <string name="dialog_gemini_api_key_title">Google Gemini API Key</string>
+    <string name="dialog_gemini_api_key_hint">Paste your Google AI Studio API key (AIzaSy…)</string>
+    <string name="status_nano_available">Gemini Nano Active ⚡ (On-Device)</string>
+    <string name="status_cloud_ready">Gemini Cloud Active ☁️</string>
+    <string name="status_key_needed">Set API Key for Cloud Answers</string>
+    <string name="gemini_copied">Answer copied to clipboard</string>
 </resources>

@@ -26,6 +26,86 @@
         android:gravity="center_horizontal"
         android:orientation="vertical">
 
+        <!-- Gemini Smart Answers Card (Frosted Glass with on-device Nano / Cloud stream) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_gemini_answer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorPrimary"
+            app:strokeWidth="1.5dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="10dp">
+
+                <!-- Header: Icon, Source Badge ("Gemini Nano ⚡"), Copy Button, Close Button -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/img_gemini_sparkle"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="@string/cd_gemini_app"
+                        android:src="@drawable/ic_gemini_color" />
+
+                    <TextView
+                        android:id="@+id/txt_gemini_badge"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:text="Gemini Nano ⚡"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <ImageView
+                        android:id="@+id/btn_copy_gemini"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Копировать"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_copy_24" />
+
+                    <ImageView
+                        android:id="@+id/btn_close_gemini"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="2dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@android:string/cancel"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_close_24" />
+                </LinearLayout>
+
+                <!-- Streaming text response -->
+                <TextView
+                    android:id="@+id/txt_gemini_content"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingExtra="3dp"
+                    android:maxLines="8"
+                    android:scrollbars="vertical"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="13.5sp" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Tier 2: Compact Deep Matches & Contacts Frosted Glass Pill
              (Contacts with Call button, System Settings, App Shortcuts, Google Ecosystem triggers) -->
         <com.google.android.material.card.MaterialCardView

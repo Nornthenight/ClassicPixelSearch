@@ -130,8 +130,23 @@ object AppSearchMatcher {
         }
         if (results.size >= limit) return results.take(limit)
 
-        // Multi-word queries with spaces must not be intercepted by loose single-word or segment matching
+        // Multi-word queries with spaces: require all query words to match app word boundaries
+        // (e.g. "Play Store" -> "Google Play Store", but "погода в москве" does not match random apps)
         if (hasSpaces) {
+            val queryWords = query.split(" ").filter { it.isNotEmpty() }
+            if (queryWords.size >= 2) {
+                for (q in queryVariants) {
+                    val words = q.split(" ").filter { it.isNotEmpty() }
+                    candidates.filter { candidate ->
+                        val labelWords = candidate.label.split(" ", "-", "_", ".").filter { it.isNotEmpty() }
+                        words.all { qw ->
+                            labelWords.any { lw -> lw.startsWith(qw, ignoreCase = true) }
+                        }
+                    }
+                        .sortedBy { it.label.length }
+                        .forEach { results.add(it) }
+                }
+            }
             return results.take(limit)
         }
 
