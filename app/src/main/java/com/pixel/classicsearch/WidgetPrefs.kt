@@ -23,21 +23,6 @@ object WidgetPrefs {
     private const val KEY_RING_GAP = "ring_gap_dp"
     private const val KEY_CORNER_RADIUS = "corner_radius_dp"
 
-    // Feature 4: Default Search & AI Service for Enter query
-    private const val KEY_DEFAULT_SEARCH_AI = "default_search_ai"
-
-    // Feature 5: QuickSearch Overlay (v1.5.0-alpha1)
-    private const val KEY_QUICK_OVERLAY_ENABLED = "quick_overlay_enabled"
-    private const val KEY_RECENT_APPS = "quick_recent_apps"
-    private const val KEY_WIDGET_BOUNDS_LEFT = "widget_bounds_left"
-    private const val KEY_WIDGET_BOUNDS_TOP = "widget_bounds_top"
-    private const val KEY_WIDGET_BOUNDS_RIGHT = "widget_bounds_right"
-    private const val KEY_WIDGET_BOUNDS_BOTTOM = "widget_bounds_bottom"
-
-    // Feature 6: Gemini On-Device & Cloud Smart Answers
-    private const val KEY_GEMINI_ENABLED = "gemini_smart_answers_enabled"
-    private const val KEY_GEMINI_API_KEY = "gemini_api_key"
-
     // Surface styles
     const val SURFACE_DEEP_RING = 0    // Default: system_accent2_300 frame + system_neutral1_10 inner
     const val SURFACE_PASTEL = 1       // system_accent1_200 frame + system_neutral1_10 inner
@@ -62,15 +47,6 @@ object WidgetPrefs {
     const val ACTION_BROWSER_FIREFOX = "browser_firefox"
     const val ACTION_BROWSER_CROMITE = "browser_cromite"
     const val PREFIX_APP = "app:"
-
-    // Search & AI Engine for Enter query
-    const val SEARCH_ENGINE_GOOGLE = "google"
-    const val SEARCH_ENGINE_CHATGPT = "chatgpt"
-    const val SEARCH_ENGINE_PERPLEXITY = "perplexity"
-    const val SEARCH_ENGINE_GEMINI = "gemini"
-    const val SEARCH_ENGINE_AI_MODE = "ai_mode"
-    const val SEARCH_ENGINE_COPILOT = "copilot"
-    const val SEARCH_ENGINE_CLAUDE = "claude"
 
     // Haptic feedback styles
     const val HAPTIC_CLOCK_TICK = 0
@@ -225,99 +201,6 @@ object WidgetPrefs {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putInt(KEY_CORNER_RADIUS, dp.coerceIn(12, 31))
-            .apply()
-    }
-
-    // --- Feature 4: Default Search & AI Service for Enter Query ---
-
-    fun getDefaultSearchAi(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_DEFAULT_SEARCH_AI, SEARCH_ENGINE_GOOGLE) ?: SEARCH_ENGINE_GOOGLE
-    }
-
-    fun setDefaultSearchAi(context: Context, engine: String) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_DEFAULT_SEARCH_AI, engine)
-            .apply()
-    }
-
-    // --- Feature 5: QuickSearch Overlay (v1.5.0-alpha1) ---
-
-    fun isQuickOverlayEnabled(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_QUICK_OVERLAY_ENABLED, true)
-    }
-
-    fun setQuickOverlayEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_QUICK_OVERLAY_ENABLED, enabled)
-            .apply()
-    }
-
-    fun getRecentApps(context: Context): List<String> {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val raw = prefs.getString(KEY_RECENT_APPS, "") ?: ""
-        return raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-    }
-
-    fun recordRecentApp(context: Context, packageName: String) {
-        if (packageName.isBlank()) return
-        val current = getRecentApps(context).toMutableList()
-        current.remove(packageName)
-        current.add(0, packageName)
-        val updated = current.take(5).joinToString(",")
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_RECENT_APPS, updated)
-            .apply()
-    }
-
-    fun saveWidgetBounds(context: Context, bounds: android.graphics.Rect) {
-        if (bounds.isEmpty) return
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putInt(KEY_WIDGET_BOUNDS_LEFT, bounds.left)
-            .putInt(KEY_WIDGET_BOUNDS_TOP, bounds.top)
-            .putInt(KEY_WIDGET_BOUNDS_RIGHT, bounds.right)
-            .putInt(KEY_WIDGET_BOUNDS_BOTTOM, bounds.bottom)
-            .apply()
-    }
-
-    fun getSavedWidgetBounds(context: Context): android.graphics.Rect? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val left = prefs.getInt(KEY_WIDGET_BOUNDS_LEFT, -1)
-        val top = prefs.getInt(KEY_WIDGET_BOUNDS_TOP, -1)
-        val right = prefs.getInt(KEY_WIDGET_BOUNDS_RIGHT, -1)
-        val bottom = prefs.getInt(KEY_WIDGET_BOUNDS_BOTTOM, -1)
-        if (left < 0 || top < 0 || right <= left || bottom <= top) return null
-        return android.graphics.Rect(left, top, right, bottom)
-    }
-
-    // --- Feature 6: Gemini Smart Answers ---
-
-    fun isGeminiEnabled(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_GEMINI_ENABLED, true)
-    }
-
-    fun setGeminiEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_GEMINI_ENABLED, enabled)
-            .apply()
-    }
-
-    fun getGeminiApiKey(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_GEMINI_API_KEY, "") ?: ""
-    }
-
-    fun setGeminiApiKey(context: Context, key: String) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_GEMINI_API_KEY, key.trim())
             .apply()
     }
 }

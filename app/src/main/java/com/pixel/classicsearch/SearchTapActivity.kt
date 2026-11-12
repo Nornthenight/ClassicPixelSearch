@@ -104,51 +104,18 @@ class SearchTapActivity : Activity() {
             ?: intent?.data?.getQueryParameter(SearchManager.QUERY)
 
         val trimmedQuery = query?.trim()
-        val defaultEngine = WidgetPrefs.getDefaultSearchAi(this)
 
         if (!trimmedQuery.isNullOrBlank()) {
-            val bang = QuickCalculator.parseBangCommand(trimmedQuery)
-            if (bang != null) {
-                val bangIntent = if (bang.isYouTube) {
-                    val encoded = Uri.encode(bang.cleanQuery)
-                    Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=$encoded")).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                } else {
-                    AiSearchDispatcher.createSearchIntent(this, bang.engineOrTarget, bang.cleanQuery)
-                }
-                safeStartActivity(bangIntent)
-                return
+            val googleWebSearch = Intent(Intent.ACTION_WEB_SEARCH).apply {
+                setPackage(GOOGLE_PACKAGE)
+                putExtra(SearchManager.QUERY, trimmedQuery)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
-
-            val matchedApp = findMatchingAppLaunchIntent(trimmedQuery)
-            if (matchedApp != null) {
-                safeStartActivity(matchedApp)
-                return
+            val genericWebSearch = Intent(Intent.ACTION_WEB_SEARCH).apply {
+                putExtra(SearchManager.QUERY, trimmedQuery)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
-
-            val searchIntent = AiSearchDispatcher.createSearchIntent(this, defaultEngine, trimmedQuery)
-            safeStartActivity(searchIntent)
-            return
-        }
-
-        // Empty query (tap on search capsule or dock bar): open QuickSearch Overlay if enabled
-        if (WidgetPrefs.isQuickOverlayEnabled(this)) {
-            val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                            Intent.FLAG_ACTIVITY_NO_ANIMATION
-                )
-            }
-            safeStartActivity(overlayIntent)
-            return
-        }
-
-        // Fallback when QuickSearch Overlay is disabled: open default AI or Google Search
-        if (defaultEngine != WidgetPrefs.SEARCH_ENGINE_GOOGLE) {
-            val emptyIntent = AiSearchDispatcher.createSearchIntent(this, defaultEngine, "")
-            safeStartActivity(emptyIntent)
+            safeStartActivity(resolveIntentWithFallback(googleWebSearch, genericWebSearch))
             return
         }
 
@@ -172,20 +139,6 @@ class SearchTapActivity : Activity() {
             }
         }
         safeStartActivity(resolveIntentWithFallback(primary, fallback))
-    }
-
-    private fun findMatchingAppLaunchIntent(query: String): Intent? {
-        return try {
-            val candidates = AppLaunchCache.getCandidates(this)
-            if (candidates.isEmpty()) return null
-
-            val bestMatch = AppSearchMatcher.findBestMatch(candidates, query) ?: return null
-            packageManager.getLaunchIntentForPackage(bestMatch.packageName)?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        } catch (_: Exception) {
-            null
-        }
     }
 
     private fun dispatchAction(action: String, defaultAction: String) {

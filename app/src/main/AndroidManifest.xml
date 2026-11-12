@@ -8,42 +8,20 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Разрешаем видимость пакетов Google, Gemini, Google Lens, Pixel Launcher, AI-ассистентов, браузеров и установленных приложений -->
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
-        <package android:name="com.google.android.aicore" />
         <package android:name="com.google.android.apps.nexuslauncher" />
         <package android:name="com.google.android.googlequicksearchbox" />
         <package android:name="com.google.android.apps.bard" />
         <package android:name="com.google.ar.lens" />
         <package android:name="com.openai.chatgpt" />
         <package android:name="ai.perplexity.app.android" />
-        <package android:name="com.microsoft.copilot" />
-        <package android:name="com.anthropic.claude" />
-        <package android:name="com.google.android.youtube" />
-        <package android:name="com.android.chrome" />
         <package android:name="com.google.android.gms" />
         <package android:name="com.brave.browser" />
         <package android:name="org.mozilla.firefox" />
         <package android:name="org.cromite.cromite" />
-        <package android:name="com.android.settings" />
-        <package android:name="com.android.vending" />
-        <package android:name="com.google.android.apps.maps" />
-        <package android:name="com.google.android.apps.translate" />
-        <package android:name="com.google.android.gm" />
-        <package android:name="com.google.android.calendar" />
-        <package android:name="com.google.android.apps.docs" />
-        <package android:name="com.google.android.apps.photos" />
-        <package android:name="com.google.android.keep" />
-        <package android:name="com.google.android.contacts" />
-        <package android:name="com.google.android.deskclock" />
-        <package android:name="com.google.android.GoogleCamera" />
-        <package android:name="org.telegram.messenger" />
-        <package android:name="com.whatsapp" />
-        <package android:name="com.spotify.music" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
@@ -83,6 +61,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ClassicPixelSearch">
 
+        <meta-data
+            android:name="android.app.default_searchable"
+            android:value=".SearchTapActivity" />
+
         <!-- Экран настройки и предпросмотра виджета -->
         <activity
             android:name=".MainActivity"
@@ -110,12 +92,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.GLOBAL_SEARCH" />
+                <action android:name="android.search.action.GLOBAL_SEARCH" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.WEB_SEARCH" />
                 <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VOICE_ASSIST" />
@@ -129,18 +112,10 @@
                 <action android:name="android.intent.action.SEARCH_LONG_PRESS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.searchable"
+                android:resource="@xml/searchable" />
         </activity>
-
-        <!-- Мгновенный поисковый оверлей QuickSearch (держится прогретым в памяти для 0мс открытия) -->
-        <activity
-            android:name=".QuickSearchActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:stateNotNeeded="true"
-            android:taskAffinity="com.pixel.classicsearch.quick"
-            android:theme="@style/Theme.ClassicPixelSearch.QuickOverlay"
-            android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />
 
         <!-- Провайдер виджета поиска Pixel (с категорией searchbox для встраивания в док Pixel Launcher) -->
         <receiver

@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ClassicPixelSearch" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">
-        <item name="android:statusBarColor">@android:color/transparent</item>
-    </style>
+    <style name="Theme.ClassicPixelSearch" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar" />
 
     <style name="Style.NoWindowAnimation" parent="@android:style/Animation">
         <item name="android:activityOpenEnterAnimation">@null</item>
@@ -28,19 +26,5 @@
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:backgroundDimEnabled">false</item>
-    </style>
-
-    <style name="Theme.ClassicPixelSearch.QuickOverlay" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">
-        <item name="android:windowAnimationStyle">@style/Style.NoWindowAnimation</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowBlurBehindEnabled">true</item>
-        <item name="android:windowBlurBehindRadius">56dp</item>
-        <item name="android:backgroundDimEnabled">true</item>
-        <item name="android:backgroundDimAmount">0.26</item>
     </style>
 </resources>

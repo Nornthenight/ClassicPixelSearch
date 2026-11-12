@@ -1,12 +1,14 @@
 package com.pixel.classicsearch
 
 import android.app.Activity
+import android.app.role.RoleManager
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
@@ -17,8 +19,12 @@ import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.materialswitch.MaterialSwitch
 import rikka.shizuku.Shizuku
 import java.util.concurrent.Executors
@@ -31,12 +37,20 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var isGrantingViaShizuku = false
     private val ioExecutor = Executors.newSingleThreadExecutor()
 
+    private lateinit var txtDefaultSearchStatus: TextView
+    private lateinit var btnDefaultSearchEngine: Button
     private lateinit var txtShizukuStatus: TextView
     private lateinit var txtWriteSecureStatus: TextView
     private lateinit var txtA11yStatus: TextView
     private lateinit var btnRequestShizuku: Button
     private lateinit var txtDockStatus: TextView
     private lateinit var switchReplaceDock: MaterialSwitch
+
+    private val roleRequestLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        updateStatusUi()
+    }
 
     private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
         if (requestCode == ShizukuHelper.SHIZUKU_REQUEST_CODE) {
@@ -60,13 +74,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
+
+        applyWindowInsets()
 
         appWidgetId = intent?.extras?.getInt(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
             AppWidgetManager.INVALID_APPWIDGET_ID
         ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
 
+        txtDefaultSearchStatus = findViewById(R.id.txt_default_search_status)
+        btnDefaultSearchEngine = findViewById(R.id.btn_default_search_engine)
         txtShizukuStatus = findViewById(R.id.txt_shizuku_status)
         txtWriteSecureStatus = findViewById(R.id.txt_write_secure_status)
         txtA11yStatus = findViewById(R.id.txt_a11y_status)
@@ -74,12 +93,6 @@ class MainActivity : AppCompatActivity() {
         switchReplaceDock = findViewById(R.id.switch_replace_dock)
         txtDockStatus = findViewById(R.id.txt_dock_status)
 
-        val switchQuickOverlay = findViewById<MaterialSwitch>(R.id.switch_quick_overlay)
-        val btnTestQuickOverlay = findViewById<Button>(R.id.btn_test_quick_overlay)
-        val switchGeminiEnabled = findViewById<MaterialSwitch>(R.id.switch_gemini_enabled)
-        val txtGeminiStatusDesc = findViewById<TextView>(R.id.txt_gemini_status_desc)
-        val rowGeminiApiKey = findViewById<View>(R.id.row_gemini_api_key)
-        val txtGeminiApiKeyDesc = findViewById<TextView>(R.id.txt_gemini_api_key_desc)
         val rowA11yStatus = findViewById<View>(R.id.row_a11y_status)
         val rgFrameStyle = findViewById<RadioGroup>(R.id.rg_frame_style)
         val rgIconStyle = findViewById<RadioGroup>(R.id.rg_icon_style)
@@ -99,8 +112,6 @@ class MainActivity : AppCompatActivity() {
         val txtMiddleActionDesc = findViewById<TextView>(R.id.txt_middle_action_desc)
         val rowAiAction = findViewById<View>(R.id.row_ai_action)
         val txtAiActionDesc = findViewById<TextView>(R.id.txt_ai_action_desc)
-        val rowDefaultSearchAi = findViewById<View>(R.id.row_default_search_ai)
-        val txtDefaultSearchAiDesc = findViewById<TextView>(R.id.txt_default_search_ai_desc)
         val btnPinWidget = findViewById<Button>(R.id.btn_pin_widget)
         val btnSave = findViewById<Button>(R.id.btn_save_config)
 
@@ -121,18 +132,20 @@ class MainActivity : AppCompatActivity() {
         var selectedMicAction = WidgetPrefs.getMicAction(this)
         var selectedMiddleAction = WidgetPrefs.getMiddleAction(this)
         var selectedAiAction = WidgetPrefs.getAiAction(this)
-        var selectedDefaultSearchAi = WidgetPrefs.getDefaultSearchAi(this)
 
         // Register Shizuku listeners
         try {
             Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
             Shizuku.addBinderReceivedListenerSticky(shizukuBinderReceivedListener)
             Shizuku.addBinderDeadListener(shizukuBinderDeadListener)
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
             // Shizuku provider not yet initialized
         }
 
-        // Configure btn_request_shizuku click action
+        btnDefaultSearchEngine.setOnClickListener {
+            requestDefaultSearchEngine()
+        }
+
         btnRequestShizuku.setOnClickListener {
             handleShizukuAction()
         }
@@ -141,13 +154,6 @@ class MainActivity : AppCompatActivity() {
             try {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             } catch (_: Exception) {}
-        }
-
-        AppLaunchCache.warmUpAsync(this)
-        switchQuickOverlay.isChecked = WidgetPrefs.isQuickOverlayEnabled(this)
-
-        btnTestQuickOverlay.setOnClickListener {
-            startActivity(Intent(this, QuickSearchActivity::class.java))
         }
 
         // Load saved preferences
@@ -186,6 +192,8 @@ class MainActivity : AppCompatActivity() {
             else -> rgHapticStyle.check(R.id.rb_haptic_tick)
         }
 
+        switchReplaceDock.isChecked = WidgetPrefs.isReplaceDockEnabled(this)
+
         fun getSelectedSurfaceStyle(): Int = when (rgFrameStyle.checkedRadioButtonId) {
             R.id.rb_frame_pastel -> WidgetPrefs.SURFACE_PASTEL
             R.id.rb_frame_rich -> WidgetPrefs.SURFACE_RICH_ACCENT
@@ -218,7 +226,6 @@ class MainActivity : AppCompatActivity() {
             txtMicActionDesc.text = formatActionLabel(selectedMicAction)
             txtMiddleActionDesc.text = formatActionLabel(selectedMiddleAction)
             txtAiActionDesc.text = formatActionLabel(selectedAiAction)
-            txtDefaultSearchAiDesc.text = formatSearchAiLabel(selectedDefaultSearchAi)
         }
 
         fun refreshStylePreview() {
@@ -279,8 +286,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         fun autoSaveAndRefreshWidget() {
-            WidgetPrefs.setQuickOverlayEnabled(this, switchQuickOverlay.isChecked)
-            WidgetPrefs.setGeminiEnabled(this, switchGeminiEnabled.isChecked)
             WidgetPrefs.setSurfaceStyle(this, getSelectedSurfaceStyle())
             WidgetPrefs.setIconStyle(this, getSelectedIconStyle())
             WidgetPrefs.setOpacityPercent(this, seekOpacity.progress)
@@ -292,76 +297,19 @@ class MainActivity : AppCompatActivity() {
             WidgetPrefs.setMicAction(this, selectedMicAction)
             WidgetPrefs.setMiddleAction(this, selectedMiddleAction)
             WidgetPrefs.setAiAction(this, selectedAiAction)
-            WidgetPrefs.setDefaultSearchAi(this, selectedDefaultSearchAi)
             WidgetPrefs.setReplaceDockEnabled(this, switchReplaceDock.isChecked)
             ClassicSearchWidgetProvider.updateAllWidgets(this)
-        }
-
-        fun refreshGeminiUi() {
-            val nanoStatus = PixelNanoManager.checkStatus(this)
-            val currentKey = WidgetPrefs.getGeminiApiKey(this)
-            when {
-                nanoStatus == PixelNanoManager.NanoStatus.AVAILABLE -> {
-                    val gen = PixelNanoManager.getTensorGenerationName()
-                    txtGeminiStatusDesc.text = "Gemini Nano ⚡ ($gen)"
-                    txtGeminiStatusDesc.setTextColor(Color.parseColor("#2E7D32"))
-                }
-                currentKey.isNotBlank() -> {
-                    txtGeminiStatusDesc.text = getString(R.string.status_cloud_ready)
-                    txtGeminiStatusDesc.setTextColor(Color.parseColor("#1976D2"))
-                }
-                nanoStatus == PixelNanoManager.NanoStatus.DOWNLOADING -> {
-                    val gen = PixelNanoManager.getTensorGenerationName()
-                    txtGeminiStatusDesc.text = "Gemini Nano ⏳ ($gen, stub/загрузка) — задайте API ключ"
-                    txtGeminiStatusDesc.setTextColor(Color.parseColor("#E65100"))
-                }
-                else -> {
-                    txtGeminiStatusDesc.text = getString(R.string.status_key_needed)
-                    txtGeminiStatusDesc.setTextColor(Color.parseColor("#E65100"))
-                }
-            }
-            txtGeminiApiKeyDesc.text = if (currentKey.isBlank()) {
-                "Не задан"
-            } else {
-                "${currentKey.take(6)}••••${currentKey.takeLast(4)}"
-            }
-        }
-
-        switchGeminiEnabled.isChecked = WidgetPrefs.isGeminiEnabled(this)
-        refreshGeminiUi()
-
-        switchGeminiEnabled.setOnCheckedChangeListener { v, _ ->
-            performPreviewHaptic(v)
-            autoSaveAndRefreshWidget()
-        }
-
-        rowGeminiApiKey.setOnClickListener { v ->
-            performPreviewHaptic(v)
-            val input = android.widget.EditText(this).apply {
-                setText(WidgetPrefs.getGeminiApiKey(this@MainActivity))
-                hint = getString(R.string.dialog_gemini_api_key_hint)
-                setSingleLine()
-            }
-            AlertDialog.Builder(this)
-                .setTitle(R.string.dialog_gemini_api_key_title)
-                .setView(input)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    WidgetPrefs.setGeminiApiKey(this, input.text.toString().trim())
-                    refreshGeminiUi()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
         }
 
         refreshActionLabels()
         refreshStylePreview()
         refreshOpacityPreview(initialOpacity, initialOuterAlpha)
 
-        switchQuickOverlay.setOnCheckedChangeListener { v, _ ->
+        switchHaptic.setOnCheckedChangeListener { v, _ ->
             performPreviewHaptic(v)
             autoSaveAndRefreshWidget()
         }
-        switchHaptic.setOnCheckedChangeListener { v, _ ->
+        switchReplaceDock.setOnCheckedChangeListener { v, _ ->
             performPreviewHaptic(v)
             autoSaveAndRefreshWidget()
         }
@@ -449,25 +397,11 @@ class MainActivity : AppCompatActivity() {
                 autoSaveAndRefreshWidget()
             }
         }
-        rowDefaultSearchAi.setOnClickListener { v ->
-            performPreviewHaptic(v)
-            showDefaultSearchAiDialog(selectedDefaultSearchAi) { chosen ->
-                selectedDefaultSearchAi = chosen
-                refreshActionLabels()
-                autoSaveAndRefreshWidget()
-            }
-        }
 
-        // Interactive live preview clicks (tapping search bar opens QuickSearch Overlay!)
+        // Tactile feedback on live preview taps
         previewLogo.setOnClickListener { v -> performPreviewHaptic(v) }
-        previewPillContainer.setOnClickListener { v ->
-            performPreviewHaptic(v)
-            startActivity(Intent(this, QuickSearchActivity::class.java))
-        }
-        previewTouchArea.setOnClickListener { v ->
-            performPreviewHaptic(v)
-            startActivity(Intent(this, QuickSearchActivity::class.java))
-        }
+        previewPillContainer.setOnClickListener { v -> performPreviewHaptic(v) }
+        previewTouchArea.setOnClickListener { v -> performPreviewHaptic(v) }
         previewMic.setOnClickListener { v -> performPreviewHaptic(v) }
         previewGemini.setOnClickListener { v -> performPreviewHaptic(v) }
         previewAi.setOnClickListener { v -> performPreviewHaptic(v) }
@@ -486,46 +420,49 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        switchReplaceDock.isChecked = WidgetPrefs.isReplaceDockEnabled(this)
-
         btnSave.setOnClickListener { v ->
             performPreviewHaptic(v)
             val replaceDock = switchReplaceDock.isChecked
             autoSaveAndRefreshWidget()
 
             val appCtx = applicationContext
-            val targetValue = if (replaceDock) packageName else null
-            ioExecutor.execute {
-                try {
-                    Settings.Secure.putString(
-                        appCtx.contentResolver,
-                        ServiceHelper.KEY_SELECTED_SEARCH_ENGINE,
-                        targetValue
-                    )
-                    runOnUiThread {
-                        if (!isFinishing && !isDestroyed) {
-                            Toast.makeText(
-                                this,
-                                if (replaceDock) {
-                                    "Search dock updated!"
-                                } else {
-                                    "Restored stock search dock"
-                                },
-                                Toast.LENGTH_SHORT
-                            ).show()
+            if (ShizukuHelper.hasWriteSecureSettings(appCtx)) {
+                val targetValue = if (replaceDock) packageName else null
+                ioExecutor.execute {
+                    try {
+                        Settings.Secure.putString(
+                            appCtx.contentResolver,
+                            ServiceHelper.KEY_SELECTED_SEARCH_ENGINE,
+                            targetValue
+                        )
+                        runOnUiThread {
+                            if (!isFinishing && !isDestroyed) {
+                                updateStatusUi()
+                                Toast.makeText(
+                                    this,
+                                    if (replaceDock) {
+                                        "Search dock updated!"
+                                    } else {
+                                        "Restored stock search dock"
+                                    },
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         }
-                    }
-                } catch (e: SecurityException) {
-                    runOnUiThread {
-                        if (!isFinishing && !isDestroyed) {
-                            Toast.makeText(
-                                this,
-                                "Missing WRITE_SECURE_SETTINGS permission",
-                                Toast.LENGTH_LONG
-                            ).show()
+                    } catch (_: SecurityException) {
+                        runOnUiThread {
+                            if (!isFinishing && !isDestroyed) {
+                                Toast.makeText(
+                                    this,
+                                    "Missing WRITE_SECURE_SETTINGS permission",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
                         }
                     }
                 }
+            } else {
+                Toast.makeText(this, R.string.toast_widget_updated, Toast.LENGTH_SHORT).show()
             }
 
             if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -538,6 +475,53 @@ class MainActivity : AppCompatActivity() {
         updateStatusUi()
     }
 
+    private fun applyWindowInsets() {
+        val mainRoot = findViewById<View>(R.id.main_root)
+        val headerContainer = findViewById<View>(R.id.header_container)
+        val scrollContent = findViewById<View>(R.id.scroll_content)
+        val bottomActionBar = findViewById<View>(R.id.bottom_action_bar)
+
+        val headerInitialLeft = headerContainer.paddingLeft
+        val headerInitialTop = headerContainer.paddingTop
+        val headerInitialRight = headerContainer.paddingRight
+        val headerInitialBottom = headerContainer.paddingBottom
+
+        val scrollInitialLeft = scrollContent.paddingLeft
+        val scrollInitialTop = scrollContent.paddingTop
+        val scrollInitialRight = scrollContent.paddingRight
+        val scrollInitialBottom = scrollContent.paddingBottom
+
+        val bottomInitialLeft = bottomActionBar.paddingLeft
+        val bottomInitialTop = bottomActionBar.paddingTop
+        val bottomInitialRight = bottomActionBar.paddingRight
+        val bottomInitialBottom = bottomActionBar.paddingBottom
+
+        ViewCompat.setOnApplyWindowInsetsListener(mainRoot) { _, windowInsets ->
+            val insets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            headerContainer.setPadding(
+                headerInitialLeft + insets.left,
+                headerInitialTop + insets.top,
+                headerInitialRight + insets.right,
+                headerInitialBottom
+            )
+            scrollContent.setPadding(
+                scrollInitialLeft + insets.left,
+                scrollInitialTop,
+                scrollInitialRight + insets.right,
+                scrollInitialBottom
+            )
+            bottomActionBar.setPadding(
+                bottomInitialLeft + insets.left,
+                bottomInitialTop,
+                bottomInitialRight + insets.right,
+                bottomInitialBottom + insets.bottom
+            )
+            WindowInsetsCompat.CONSUMED
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         updateStatusUi()
@@ -548,11 +532,78 @@ class MainActivity : AppCompatActivity() {
             Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
             Shizuku.removeBinderReceivedListener(shizukuBinderReceivedListener)
             Shizuku.removeBinderDeadListener(shizukuBinderDeadListener)
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
             // Ignore
         }
         ioExecutor.shutdown()
         super.onDestroy()
+    }
+
+    private fun isDefaultSearchEngineRoleHeld(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        return try {
+            val roleManager = getSystemService(RoleManager::class.java) ?: return false
+            roleManager.isRoleAvailable(ROLE_SEARCH_ENGINE) && roleManager.isRoleHeld(ROLE_SEARCH_ENGINE)
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun isDefaultSearchEngineActive(): Boolean {
+        if (isDefaultSearchEngineRoleHeld()) return true
+        return try {
+            Settings.Secure.getString(
+                contentResolver,
+                ServiceHelper.KEY_SELECTED_SEARCH_ENGINE
+            ) == packageName
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun requestDefaultSearchEngine() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val roleManager = getSystemService(RoleManager::class.java)
+                if (roleManager != null && roleManager.isRoleAvailable(ROLE_SEARCH_ENGINE)) {
+                    roleRequestLauncher.launch(roleManager.createRequestRoleIntent(ROLE_SEARCH_ENGINE))
+                    return
+                }
+            } catch (_: Throwable) {
+                // Fall through to launcher / system search settings
+            }
+        }
+
+        val candidates = listOf(
+            Intent().setComponent(
+                ComponentName(PIXEL_LAUNCHER_PACKAGE, "$PIXEL_LAUNCHER_PACKAGE.search.SearchEngineSettings")
+            ),
+            Intent().setComponent(
+                ComponentName(PIXEL_LAUNCHER_PACKAGE, "$PIXEL_LAUNCHER_PACKAGE.settings.SearchEngineSettings")
+            ),
+            Intent().setComponent(
+                ComponentName(PIXEL_LAUNCHER_PACKAGE, "$PIXEL_LAUNCHER_PACKAGE.SearchEngineSettings")
+            ),
+            Intent().setComponent(
+                ComponentName(PIXEL_LAUNCHER_PACKAGE, "$PIXEL_LAUNCHER_PACKAGE.SettingsActivity")
+            ),
+            Intent(ACTION_SEARCH_SETTINGS),
+            Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS),
+            Intent(Settings.ACTION_HOME_SETTINGS)
+        )
+
+        for (candidate in candidates) {
+            if (packageManager.resolveActivity(candidate, 0) != null) {
+                try {
+                    startActivity(candidate)
+                    return
+                } catch (_: Exception) {
+                    // Try next fallback
+                }
+            }
+        }
+
+        Toast.makeText(this, R.string.toast_default_search_unavailable, Toast.LENGTH_LONG).show()
     }
 
     private fun grantAndEnableAsync(showSuccessToast: Boolean) {
@@ -582,6 +633,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatusUi() {
+        // 0. Primary Default Search Engine Status
+        val isDefaultActive = isDefaultSearchEngineActive()
+        if (isDefaultActive) {
+            txtDefaultSearchStatus.setText(R.string.status_default_search_active)
+            txtDefaultSearchStatus.setTextColor(Color.parseColor("#2E7D32"))
+        } else {
+            txtDefaultSearchStatus.setText(R.string.status_default_search_inactive)
+            txtDefaultSearchStatus.setTextColor(Color.parseColor("#E65100"))
+        }
+
         val isInstalled = ShizukuHelper.isInstalled(this)
         val isRunning = ShizukuHelper.isRunning()
         val isShizukuGranted = ShizukuHelper.isPermissionGranted()
@@ -631,7 +692,7 @@ class MainActivity : AppCompatActivity() {
             txtWriteSecureStatus.setTextColor(Color.parseColor("#E65100"))
         }
 
-        // 3. All Apps Search Service (Accessibility)
+        // 3. Launcher Sync Accessibility Service
         if (isA11yActive) {
             txtA11yStatus.text = if (isRu) "Активно" else "Active"
             txtA11yStatus.setTextColor(Color.parseColor("#2E7D32"))
@@ -640,15 +701,14 @@ class MainActivity : AppCompatActivity() {
             txtA11yStatus.setTextColor(Color.parseColor("#757575"))
         }
 
-        // 4. Dock Switch Status (respect saved user preference)
-        switchReplaceDock.isChecked = WidgetPrefs.isReplaceDockEnabled(this)
+        // 4. Dock Fallback Status
         txtDockStatus.text = if (hasWriteSecure) {
             if (isRu) "Встроен в док Pixel Launcher" else "Integrated into Pixel Launcher dock"
         } else {
             if (isRu) "Требуется разрешение WRITE_SECURE_SETTINGS" else "Requires WRITE_SECURE_SETTINGS permission"
         }
 
-        // 5. Button Text and Action State
+        // 5. Shizuku Button Text and Action State
         when {
             hasWriteSecure && isA11yActive -> {
                 btnRequestShizuku.text = if (isRu) "Все разрешения активны" else "All Permissions Active"
@@ -730,13 +790,12 @@ class MainActivity : AppCompatActivity() {
             action == WidgetPrefs.ACTION_BROWSER_CROMITE -> getString(R.string.action_browser_cromite)
             action.startsWith(WidgetPrefs.PREFIX_APP) -> {
                 val pkg = action.removePrefix(WidgetPrefs.PREFIX_APP)
-                val appLabel = try {
+                try {
                     val ai = packageManager.getApplicationInfo(pkg, 0)
                     packageManager.getApplicationLabel(ai).toString()
                 } catch (_: Exception) {
                     pkg
                 }
-                appLabel
             }
             else -> getString(R.string.action_voice_search)
         }
@@ -774,66 +833,6 @@ class MainActivity : AppCompatActivity() {
 
         AlertDialog.Builder(this)
             .setTitle(R.string.dialog_select_action)
-            .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
-                dialog.dismiss()
-                if (which == labels.lastIndex) {
-                    showInstalledAppsDialog(onSelected)
-                } else {
-                    onSelected(presetCodes[which])
-                }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun formatSearchAiLabel(engine: String): String {
-        return when {
-            engine == WidgetPrefs.SEARCH_ENGINE_GOOGLE -> getString(R.string.action_search_google)
-            engine == WidgetPrefs.SEARCH_ENGINE_CHATGPT -> getString(R.string.action_chatgpt)
-            engine == WidgetPrefs.SEARCH_ENGINE_PERPLEXITY -> getString(R.string.action_perplexity)
-            engine == WidgetPrefs.SEARCH_ENGINE_GEMINI -> getString(R.string.action_gemini)
-            engine == WidgetPrefs.SEARCH_ENGINE_AI_MODE -> getString(R.string.action_ai_mode)
-            engine == WidgetPrefs.SEARCH_ENGINE_COPILOT -> getString(R.string.action_copilot)
-            engine == WidgetPrefs.SEARCH_ENGINE_CLAUDE -> getString(R.string.action_claude)
-            engine.startsWith(WidgetPrefs.PREFIX_APP) -> {
-                val pkg = engine.removePrefix(WidgetPrefs.PREFIX_APP)
-                try {
-                    val ai = packageManager.getApplicationInfo(pkg, 0)
-                    packageManager.getApplicationLabel(ai).toString()
-                } catch (_: Exception) {
-                    pkg
-                }
-            }
-            else -> getString(R.string.action_search_google)
-        }
-    }
-
-    private fun showDefaultSearchAiDialog(currentEngine: String, onSelected: (String) -> Unit) {
-        val presetCodes = arrayOf(
-            WidgetPrefs.SEARCH_ENGINE_GOOGLE,
-            WidgetPrefs.SEARCH_ENGINE_CHATGPT,
-            WidgetPrefs.SEARCH_ENGINE_PERPLEXITY,
-            WidgetPrefs.SEARCH_ENGINE_GEMINI,
-            WidgetPrefs.SEARCH_ENGINE_AI_MODE,
-            WidgetPrefs.SEARCH_ENGINE_COPILOT,
-            WidgetPrefs.SEARCH_ENGINE_CLAUDE
-        )
-        val labels = arrayOf(
-            getString(R.string.action_search_google),
-            getString(R.string.action_chatgpt),
-            getString(R.string.action_perplexity),
-            getString(R.string.action_gemini),
-            getString(R.string.action_ai_mode),
-            getString(R.string.action_copilot),
-            getString(R.string.action_claude),
-            getString(R.string.btn_choose_custom_app)
-        )
-        val checkedIndex = presetCodes.indexOf(currentEngine).let {
-            if (it >= 0) it else if (currentEngine.startsWith(WidgetPrefs.PREFIX_APP)) labels.lastIndex else 0
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.dialog_select_search_ai)
             .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
                 dialog.dismiss()
                 if (which == labels.lastIndex) {
@@ -884,5 +883,11 @@ class MainActivity : AppCompatActivity() {
                     .show()
             }
         }
+    }
+
+    companion object {
+        private const val ROLE_SEARCH_ENGINE = "android.app.role.SEARCH_ENGINE"
+        private const val PIXEL_LAUNCHER_PACKAGE = "com.google.android.apps.nexuslauncher"
+        private const val ACTION_SEARCH_SETTINGS = "android.search.action.SEARCH_SETTINGS"
     }
 }

@@ -6,9 +6,6 @@ package com.pixel.classicsearch
  * Strictly and monotonically enforces CLASSIC_SEARCH_PACKAGE when dock replacement is enabled.
  * Never toggles to Google Search, guaranteeing 100% zero dock flicker under any swipe velocity,
  * quick tap, or rapid drawer opening/closing.
- *
- * App launch on Enter and matching are handled by SearchTapActivity and LauncherStateService
- * using the enhanced AppSearchMatcher with transliteration and package-segment resolution.
  */
 object LauncherEnginePolicy {
 

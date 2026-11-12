@@ -3,7 +3,7 @@ package com.pixel.classicsearch
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.WallpaperManager
-import android.content.Intent
+import android.content.res.Configuration
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Handler
@@ -11,57 +11,54 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
-import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
 import java.util.concurrent.Executors
 
 /**
- * Monolithic zero-flicker launcher state & theme synchronizer with
- * non-intrusive Accessibility result-highlighting and Enter QuickLaunch.
+ * Passive zero-flicker launcher state & theme synchronizer.
  *
  * Guarantees:
- * 1. ZERO FLICKER: selected_search_engine is never dynamically switched to Google,
+ * 1. ZERO FLICKER: selected_search_engine is never dynamically toggled to Google,
  *    keeping the desktop dock 100% solid and flicker-free during rapid swipes.
- * 2. APP HIGHLIGHT: highlights top matched app cards in Pixel Launcher (e.g. "АВ" -> "Авито").
- * 3. ENTER QUICKLAUNCH: pressing Enter activates the highlighted card or launches the matched app.
+ * 2. LIVE MONET SYNC: reacts to wallpaper color changes, theme customization overlays,
+ *    and relevant configuration changes (night mode, density, locales) to refresh widgets.
  */
 class LauncherStateService : AccessibilityService() {
 
     companion object {
         private const val TAG = "LauncherStateService"
         private const val PIXEL_LAUNCHER_PKG = "com.google.android.apps.nexuslauncher"
-        private const val GSA_PKG = "com.google.android.googlequicksearchbox"
-        private const val ID_SEARCH_INPUT = "com.google.android.apps.nexuslauncher:id/input"
-        private const val ID_SEARCH_ALL_APPS = "com.google.android.apps.nexuslauncher:id/search_container_all_apps"
-        private const val ID_SEARCH_RESULTS = "com.google.android.apps.nexuslauncher:id/search_results_list_view"
-        private const val ID_APPS_LIST = "com.google.android.apps.nexuslauncher:id/apps_list_view"
     }
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var currentEngine: String? = null
     @Volatile private var lastEngineCheckTime: Long = 0L
-    @Volatile private var lastOverlayLaunchTime: Long = 0L
 
     private var themeCustomizationObserver: ContentObserver? = null
     private var colorsChangedListener: WallpaperManager.OnColorsChangedListener? = null
     private var debouncedUpdateRunnable: Runnable? = null
-    private var highlightRunnable: Runnable? = null
+
+    private var lastNightMode: Int = 0
+    private var lastDensityDpi: Int = 0
+    private var lastLocalesTag: String = ""
+
+    override fun onCreate() {
+        super.onCreate()
+        captureConfig(resources.configuration)
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Log.i(TAG, "LauncherStateService connected in active zero-flicker highlight mode")
+        Log.i(TAG, "LauncherStateService connected in passive zero-flicker mode")
+        captureConfig(resources.configuration)
 
         val info = serviceInfo ?: AccessibilityServiceInfo()
-        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or
-                AccessibilityEvent.TYPE_VIEW_CLICKED
-        info.packageNames = null
+        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        info.packageNames = arrayOf(PIXEL_LAUNCHER_PKG)
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
-                AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
-        info.notificationTimeout = 0
+        info.flags = AccessibilityServiceInfo.DEFAULT
+        info.notificationTimeout = 100
         serviceInfo = info
 
         // Register ContentObserver on theme_customization_overlay_packages
@@ -100,7 +97,12 @@ class LauncherStateService : AccessibilityService() {
         if (WidgetPrefs.isReplaceDockEnabled(this)) {
             ensureClassicSearchEngine()
         }
-        AppLaunchCache.warmUpAsync(this)
+    }
+
+    private fun captureConfig(config: Configuration) {
+        lastNightMode = config.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        lastDensityDpi = config.densityDpi
+        lastLocalesTag = config.locales.toLanguageTags()
     }
 
     private fun triggerDebouncedWidgetUpdate() {
@@ -116,294 +118,17 @@ class LauncherStateService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-        val pkg = event.packageName?.toString() ?: ""
-        val cls = event.className?.toString() ?: ""
-        val replaceEnabled = WidgetPrefs.isReplaceDockEnabled(this)
-        Log.d(TAG, "onAccessibilityEvent: type=${event.eventType} pkg=$pkg cls=$cls replaceEnabled=$replaceEnabled")
-        if (!replaceEnabled) return
+        if (event.packageName?.toString() != PIXEL_LAUNCHER_PKG) return
+        if (!WidgetPrefs.isReplaceDockEnabled(this)) return
 
-        // 1. Android 17+ Pixel Launcher Dock Interception:
-        // NexusLauncher in Android 17 bypasses selected_search_engine and directly launches
-        // GoogleAppActivity / InternalGoogleAppActivityEntrypoint when the dock search capsule is tapped.
-        if (pkg == GSA_PKG && (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED)) {
-            val isSearchLaunch = cls.contains("GoogleAppActivity") ||
-                    cls.contains("InternalGoogleAppActivityEntrypoint") ||
-                    event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED
-            if (isSearchLaunch) {
-                val now = SystemClock.elapsedRealtime()
-                if (now - QuickSearchActivity.lastDismissRealtimeMs > 1200L &&
-                    now - lastOverlayLaunchTime > 500L &&
-                    WidgetPrefs.isQuickOverlayEnabled(this)
-                ) {
-                    lastOverlayLaunchTime = now
-                    Log.i(TAG, "Android 17 dock search launch intercepted ($cls) -> launching QuickSearchActivity")
-                    val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
-                        putExtra("from_widget", true)
-                        putExtra("from_dock_hijack", true)
-                        addFlags(
-                            Intent.FLAG_ACTIVITY_NEW_TASK or
-                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                    Intent.FLAG_ACTIVITY_NO_ANIMATION
-                        )
-                    }
-                    startActivity(overlayIntent)
-                    return
-                }
-            }
-            return
-        }
-
-        if (pkg != PIXEL_LAUNCHER_PKG) {
-            return
-        }
-
-        // Direct tap on NexusLauncher dock search bar container
-        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-            val source = try { event.source } catch (_: Exception) { null }
-            if (source != null) {
-                try {
-                    val viewId = source.viewIdResourceName ?: ""
-                    if (viewId.contains("search_container_hotseat") || viewId.contains("search_container_workspace")) {
-                        val now = SystemClock.elapsedRealtime()
-                        if (now - QuickSearchActivity.lastDismissRealtimeMs > 1200L &&
-                            now - lastOverlayLaunchTime > 500L &&
-                            WidgetPrefs.isQuickOverlayEnabled(this)
-                        ) {
-                            lastOverlayLaunchTime = now
-                            Log.i(TAG, "NexusLauncher dock search clicked -> opening QuickSearchActivity")
-                            val rect = android.graphics.Rect()
-                            try { source.getBoundsInScreen(rect) } catch (_: Exception) {}
-                            launchQuickOverlayNow("", rect, fromAllApps = false)
-                            return
-                        }
-                    }
-                } finally {
-                    try { source.recycle() } catch (_: Exception) {}
-                }
-            }
-            return
-        }
-
-        when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                highlightRunnable?.let {
-                    mainHandler.removeCallbacks(it)
-                    highlightRunnable = null
-                }
-                ensureClassicSearchEngine()
-            }
-            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
-                handleSearchInputEvent(event)
-            }
-        }
-    }
-
-    private fun launchQuickOverlayNow(
-        queryText: String,
-        sourceRect: android.graphics.Rect?,
-        fromAllApps: Boolean = true
-    ) {
-        val overlayIntent = Intent(this, QuickSearchActivity::class.java).apply {
-            putExtra("from_all_apps", fromAllApps)
-            putExtra("from_widget", !fromAllApps)
-            putExtra("from_dock_hijack", true)
-            if (queryText.isNotEmpty()) {
-                putExtra("query", queryText)
-            }
-            if (sourceRect != null && !sourceRect.isEmpty) {
-                sourceBounds = sourceRect
-            }
-            addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_NO_ANIMATION
-            )
-        }
-        startActivity(overlayIntent)
-    }
-
-    private fun handleSearchInputEvent(event: AccessibilityEvent) {
-        val source = try { event.source } catch (_: Exception) { null } ?: return
-        try {
-            val viewId = source.viewIdResourceName
-            if (viewId == ID_SEARCH_INPUT || viewId == ID_SEARCH_ALL_APPS) {
-                val rawText = source.text?.toString()?.trim() ?: ""
-                val hintText = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    source.hintText?.toString()?.trim() ?: ""
-                } else ""
-                val queryText = if (rawText.isNotEmpty() && rawText != hintText) rawText else ""
-
-                // Only launch our overlay when actual text is typed in the App Drawer search bar
-                // (never hijack swipe-up or empty search bar tap).
-                if (WidgetPrefs.isQuickOverlayEnabled(this) &&
-                    event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED &&
-                    queryText.isNotEmpty()
-                ) {
-                    val now = SystemClock.elapsedRealtime()
-                    if (now - QuickSearchActivity.lastDismissRealtimeMs < 1200L) {
-                        return
-                    }
-                    if (now - lastOverlayLaunchTime > 450L) {
-                        lastOverlayLaunchTime = now
-                        val rect = android.graphics.Rect()
-                        try {
-                            source.getBoundsInScreen(rect)
-                        } catch (_: Exception) {}
-                        try {
-                            val clearArgs = android.os.Bundle().apply {
-                                putCharSequence(
-                                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                                    ""
-                                )
-                            }
-                            source.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, clearArgs)
-                            source.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS)
-                        } catch (_: Exception) {}
-                        launchQuickOverlayNow(queryText, rect)
-                        return
-                    }
-                }
-
-                if (queryText.isNotEmpty()) {
-                    scheduleHighlightFirstResult()
-                }
-            }
-        } finally {
-            try { source.recycle() } catch (_: Exception) {}
-        }
-    }
-
-    private fun scheduleHighlightFirstResult() {
-        highlightRunnable?.let { mainHandler.removeCallbacks(it) }
-        val runnable = Runnable {
-            highlightFirstResult()
-            highlightRunnable = null
-        }
-        highlightRunnable = runnable
-        mainHandler.postDelayed(runnable, 50L)
-    }
-
-    private fun highlightFirstResult() {
-        val root = try { rootInActiveWindow } catch (_: Exception) { null } ?: return
-        try {
-            val pkg = root.packageName?.toString()
-            if (pkg != PIXEL_LAUNCHER_PKG) return
-
-            val resultContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_RESULTS)
-            for (container in resultContainers) {
-                if (container.childCount > 0) {
-                    val firstChild = container.getChild(0)
-                    if (firstChild != null) {
-                        firstChild.performAction(AccessibilityNodeInfo.ACTION_SELECT)
-                        firstChild.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS)
-                        try { firstChild.recycle() } catch (_: Exception) {}
-                        break
-                    }
-                }
-                try { container.recycle() } catch (_: Exception) {}
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to highlight search result", e)
-        } finally {
-            try { root.recycle() } catch (_: Exception) {}
-        }
-    }
-
-    override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_UP &&
-            (event.keyCode == KeyEvent.KEYCODE_ENTER || event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)
-        ) {
-            if (launchFirstResultOrMatchingApp()) {
-                return true
-            }
-        }
-        return super.onKeyEvent(event)
-    }
-
-    private fun launchFirstResultOrMatchingApp(): Boolean {
-        val root = try { rootInActiveWindow } catch (_: Exception) { null } ?: return false
-        try {
-            val pkg = root.packageName?.toString()
-            if (pkg != PIXEL_LAUNCHER_PKG) return false
-
-            // Read query from ID_SEARCH_INPUT first to decide whether it's an app query or AI question
-            val inputs = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_INPUT)
-            val query = inputs.firstOrNull()?.text?.toString()?.trim()
-            inputs.forEach { try { it.recycle() } catch (_: Exception) {} }
-
-            if (!query.isNullOrEmpty()) {
-                // 1. Check !bang command
-                val bang = QuickCalculator.parseBangCommand(query)
-                if (bang != null) {
-                    val bangIntent = if (bang.isYouTube) {
-                        val encoded = Uri.encode(bang.cleanQuery)
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=$encoded")).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                    } else {
-                        AiSearchDispatcher.createSearchIntent(this, bang.engineOrTarget, bang.cleanQuery)
-                    }
-                    startActivity(bangIntent)
-                    return true
-                }
-
-                // 2. Check AppSearchMatcher via in-memory AppLaunchCache
-                if (launchBestMatchingApp(query)) {
-                    return true
-                }
-
-                // 3. If not an explicit question and single word, try clicking top card in ID_SEARCH_RESULTS
-                if (!query.contains('?') && !query.contains(' ')) {
-                    val resultContainers = root.findAccessibilityNodeInfosByViewId(ID_SEARCH_RESULTS)
-                    for (container in resultContainers) {
-                        if (container.childCount > 0) {
-                            val firstChild = container.getChild(0)
-                            if (firstChild != null) {
-                                val clicked = firstChild.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                                try { firstChild.recycle() } catch (_: Exception) {}
-                                if (clicked) return true
-                            }
-                        }
-                        try { container.recycle() } catch (_: Exception) {}
-                    }
-                }
-
-                // 4. Route non-app query / question directly to the default AI service
-                val defaultEngine = WidgetPrefs.getDefaultSearchAi(this)
-                val aiIntent = AiSearchDispatcher.createSearchIntent(this, defaultEngine, query)
-                startActivity(aiIntent)
-                return true
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to launch result on enter", e)
-        } finally {
-            try { root.recycle() } catch (_: Exception) {}
-        }
-        return false
-    }
-
-    private fun launchBestMatchingApp(query: String): Boolean {
-        return try {
-            val candidates = AppLaunchCache.getCandidates(this)
-            val best = AppSearchMatcher.findBestMatch(candidates, query)
-            if (best != null) {
-                val launchIntent = packageManager.getLaunchIntentForPackage(best.packageName)?.apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                if (launchIntent != null) {
-                    startActivity(launchIntent)
-                    return true
-                }
-            }
-            false
-        } catch (e: Exception) {
-            Log.w(TAG, "Error matching app for query $query", e)
-            false
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            ensureClassicSearchEngine()
         }
     }
 
     private fun ensureClassicSearchEngine() {
+        if (!ShizukuHelper.hasWriteSecureSettings(this)) return
+
         val targetEngine = LauncherEnginePolicy.resolveTargetEngine(WidgetPrefs.isReplaceDockEnabled(this))
             ?: return
         val now = SystemClock.elapsedRealtime()
@@ -421,6 +146,10 @@ class LauncherStateService : AccessibilityService() {
         try {
             executor.execute {
                 try {
+                    if (!ShizukuHelper.hasWriteSecureSettings(this)) {
+                        currentEngine = null
+                        return@execute
+                    }
                     if (!WidgetPrefs.isReplaceDockEnabled(this)) {
                         currentEngine = null
                         return@execute
@@ -454,10 +183,22 @@ class LauncherStateService : AccessibilityService() {
         }
     }
 
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+    override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        Log.i(TAG, "Configuration changed -> updating widgets")
-        ClassicSearchWidgetProvider.updateAllWidgets(this)
+        val newNightMode = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        val newDensityDpi = newConfig.densityDpi
+        val newLocalesTag = newConfig.locales.toLanguageTags()
+
+        if (newNightMode != lastNightMode ||
+            newDensityDpi != lastDensityDpi ||
+            newLocalesTag != lastLocalesTag
+        ) {
+            lastNightMode = newNightMode
+            lastDensityDpi = newDensityDpi
+            lastLocalesTag = newLocalesTag
+            Log.i(TAG, "Relevant configuration changed -> updating widgets")
+            ClassicSearchWidgetProvider.updateAllWidgets(this)
+        }
     }
 
     override fun onInterrupt() {
@@ -468,10 +209,6 @@ class LauncherStateService : AccessibilityService() {
         debouncedUpdateRunnable?.let {
             mainHandler.removeCallbacks(it)
             debouncedUpdateRunnable = null
-        }
-        highlightRunnable?.let {
-            mainHandler.removeCallbacks(it)
-            highlightRunnable = null
         }
         themeCustomizationObserver?.let {
             try { contentResolver.unregisterContentObserver(it) } catch (_: Exception) {}

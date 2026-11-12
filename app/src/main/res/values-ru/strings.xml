@@ -10,24 +10,19 @@
     <string name="cd_ai_mode">Режим ИИ</string>
 
     <string name="settings_title">Pixel Search</string>
-    <string name="badge_beta">БЕТА</string>
+    <string name="preview_label">Предпросмотр</string>
 
-    <string name="preview_label">Предпросмотр (тапните по строке для теста QuickSearch)</string>
-
-    <string name="quick_search_hint">Поиск приложений, расчёт или вопрос ИИ…</string>
-    <string name="quick_search_hint_dynamic">Найти приложение или спросить %1$s…</string>
-    <string name="quick_calc_copy_hint">Мгновенный калькулятор • Тап или Enter — скопировать</string>
-    <string name="quick_calc_copied">Скопировано: %1$s</string>
-    <string name="quick_top_app_hint">Выбрано • Нажмите Enter ↵ для запуска</string>
-    <string name="quick_secondary_app_hint">Тапните или нажмите ▼ для выбора</string>
-    <string name="quick_recent_apps_title">Быстрый запуск</string>
-    <string name="quick_ask_ai_format">Искать в %1$s</string>
-    <string name="option_quick_overlay">Оверлей QuickSearch (Альфа)</string>
-    <string name="option_quick_overlay_desc">Мгновенное окно поиска поверх экрана: подсветка приложений по Enter, чипы ИИ, калькулятор и !bang-команды (!p, !c, !g, !y)</string>
-    <string name="btn_test_quick_overlay">Открыть оверлей QuickSearch</string>
+    <!-- Основная интеграция: поисковая система по умолчанию -->
+    <string name="section_default_search_engine">Поисковая система по умолчанию</string>
+    <string name="default_search_engine_title">Использовать Pixel Search в доке</string>
+    <string name="default_search_engine_desc">Выберите Pixel Search поисковой системой по умолчанию, чтобы заменить нижнюю строку поиска Pixel Launcher без Shizuku.</string>
+    <string name="label_default_search_status">Статус</string>
+    <string name="status_default_search_active">Активно</string>
+    <string name="status_default_search_inactive">Не выбрано</string>
+    <string name="btn_set_default_search_engine">Выбрать по умолчанию</string>
+    <string name="toast_default_search_unavailable">Не удалось открыть настройки поиска. Проверьте раздел «Приложения по умолчанию» в настройках Android.</string>
 
     <!-- Разделы кастомизации -->
-    <string name="section_appearance">Внешний вид</string>
     <string name="section_frame_color">Стиль рамки</string>
     <string name="frame_style_deep">Глубокое кольцо</string>
     <string name="frame_style_pastel">Пастель</string>
@@ -53,13 +48,8 @@
     <string name="action_browser_brave">Brave</string>
     <string name="action_browser_firefox">Firefox</string>
     <string name="action_browser_cromite">Cromite</string>
-    <string name="action_search_google">Поиск Google</string>
-    <string name="action_copilot">Microsoft Copilot</string>
-    <string name="action_claude">Claude</string>
-    <string name="label_default_search_ai">Поиск и ИИ (Enter)</string>
     <string name="btn_choose_custom_app">Выбрать приложение…</string>
     <string name="dialog_select_action">Выберите действие</string>
-    <string name="dialog_select_search_ai">Выберите сервис поиска или ИИ для Enter</string>
     <string name="dialog_choose_app">Выберите приложение</string>
 
     <string name="section_geometry">Геометрия и прозрачность</string>
@@ -68,38 +58,24 @@
     <string name="label_ring_gap">Зазор колец</string>
     <string name="label_corner_radius">Скругление углов</string>
 
-    <!-- Нижний блок: система и расширенные настройки -->
-    <string name="section_system_advanced">Система и дополнения</string>
-
+    <!-- Вибрация -->
     <string name="section_haptics">Вибрация</string>
     <string name="option_haptic_enabled">Тактильный отклик</string>
     <string name="haptic_style_tick">Тик (мягкий)</string>
     <string name="haptic_style_click">Клик (чёткий)</string>
 
-    <string name="section_dock_integration">Док Pixel Launcher</string>
-    <string name="option_replace_dock">Заменить системный поиск</string>
-    <string name="option_replace_dock_desc">Встроить виджет в док рабочего стола</string>
-
-    <string name="section_system_status">Shizuku и права доступа</string>
+    <!-- Запасной способ (Shizuku / ADB) -->
+    <string name="section_shizuku_fallback">Запасной способ (Shizuku / ADB)</string>
+    <string name="shizuku_fallback_desc">Используйте этот вариант на устройствах или в регионах, где отсутствует системный выбор поисковой системы.</string>
+    <string name="option_replace_dock">Заменить док Pixel Launcher</string>
+    <string name="option_replace_dock_desc">Прямая запись selected_search_engine через WRITE_SECURE_SETTINGS</string>
     <string name="label_shizuku_status">Служба Shizuku</string>
     <string name="label_write_secure_status">WRITE_SECURE_SETTINGS</string>
-    <string name="label_a11y_status">Поиск в меню приложений</string>
+    <string name="label_a11y_status">Служба синхронизации</string>
     <string name="btn_request_shizuku">Запросить доступ через Shizuku</string>
 
-    <string name="btn_add_widget">Добавить виджет на экран</string>
-    <string name="btn_save">Применить</string>
-    <string name="accessibility_service_description">Обеспечивает работу поиска в меню приложений лаунчера, сохраняя виджет в доке.</string>
-
-    <!-- Gemini и Умные ответы -->
-    <string name="section_gemini">Gemini и Умные ответы</string>
-    <string name="option_gemini_enabled">Карточка умных ответов Gemini</string>
-    <string name="option_gemini_desc">Мгновенный стриминг ответов от набортного Gemini Nano на Pixel 8/9/10/11 или облачного Gemini Flash</string>
-    <string name="label_gemini_status">Статус движка</string>
-    <string name="label_gemini_api_key">Ключ Gemini API</string>
-    <string name="dialog_gemini_api_key_title">Google Gemini API Key</string>
-    <string name="dialog_gemini_api_key_hint">Вставьте ключ Google AI Studio (AIzaSy…)</string>
-    <string name="status_nano_available">Gemini Nano Активен ⚡ (Локальный TPU)</string>
-    <string name="status_cloud_ready">Gemini Cloud Активен ☁️</string>
-    <string name="status_key_needed">Укажите API Key для облачных ответов</string>
-    <string name="gemini_copied">Ответ Gemini скопирован в буфер</string>
+    <string name="btn_add_widget">Закрепить как отдельный виджет</string>
+    <string name="btn_save">Применить и обновить</string>
+    <string name="toast_widget_updated">Виджет обновлён!</string>
+    <string name="accessibility_service_description">Синхронизирует цвета виджета при смене обоев и темы и удерживает поисковую панель в доке Pixel Launcher.</string>
 </resources>

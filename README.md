@@ -1,98 +1,81 @@
 # ClassicPixelSearch
 
-A native Android dock search widget for Google Pixel devices (Pixel Launcher) that replaces the bottom home screen search dock with the classic concentric double-frame search bar, featuring real-time Material You Monet dynamic color synchronization (wallpaper & palette changes) and Shizuku-assisted setup.
+A minimalist native Android search dock widget for Google Pixel devices (Pixel Launcher) featuring the classic concentric double-frame search bar, real-time Material You / Monet dynamic color synchronization, native **Default Search Engine** integration, and an optional **Shizuku / ADB** fallback.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%2012%2B-green.svg)](https://developer.android.com)
+[![Android CI](https://github.com/Nornthenight/ClassicPixelSearch/actions/workflows/ci.yml/badge.svg)](https://github.com/Nornthenight/ClassicPixelSearch/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Nornthenight/ClassicPixelSearch?include_prereleases&label=release)](https://github.com/Nornthenight/ClassicPixelSearch/releases)
-
----
-
-## Visual Showcase
-
-### Dynamic Dock Frame Adaptation (Day & Night)
-The search pill dynamically matches your wallpaper and Pixel Launcher's light/dark system theme with pixel-perfect elevation, corner radii, and icon colors.
-
-| Light Mode Dock | Dark Mode Dock |
-| :---: | :---: |
-| <img src="screenshots/dock_light.png" alt="Light Mode Dock" width="500"/> | <img src="screenshots/dock_dark.png" alt="Dark Mode Dock" width="500"/> |
-| *Pixel Launcher light dock bar with dynamic accent tinting* | *Pixel Launcher dark dock bar with night contrast adaptation* |
-
-<br/>
-
-### OneSearch QuickLaunch & In-App Management
-
-| All Apps OneSearch + Enter QuickLaunch | Settings & Shizuku Integration |
-| :---: | :---: |
-| <img src="screenshots/search_onesearch.png" alt="All Apps OneSearch QuickLaunch" width="360"/> | <img src="screenshots/settings_shizuku.png" alt="Settings & Shizuku Status" width="360"/> |
-| *Typing queries in All Apps highlights top matched apps with instant Enter key launch.* | *Real-time Shizuku status indicator and interactive widget customization preview.* |
 
 ---
 
 ## Key Features
 
-- **Pixel Launcher Aesthetic & Micro-interactions**:
-  - Classic rounded pill search bar with Google "G" logo, Mic, Gemini / Lens, and AI Mode buttons.
-  - Dynamic Material You / Monet color palette synchronization (Deep Ring, Soft Pastel, Bold Accent, and **Pure AMOLED Black / High Contrast**).
-  - Pixel-style haptic feedback (`CLOCK_TICK` or `CONTEXT_CLICK`) on search capsule and icon taps.
-- **Fine-Grained Geometry & Framing Controls**:
-  - Independent sliders for **Outer Ring Opacity (`0–100%`)**, **Concentric Ring Gap (`2–12 dp`)**, and **Corner Radius (`12–36 dp`)** to fit `4x5` and `5x5` desktop grids.
+- **Minimalist Native Search Integration**:
+  - **Primary — Default Search Engine**: Uses Android's `RoleManager` (`android.app.role.SEARCH_ENGINE`) and Pixel Launcher's search engine settings so the widget integrates into the Pixel Launcher dock natively without root or Shizuku.
+  - **Optional Fallback — Shizuku / ADB**: On regions or builds without the native Default Search Engine picker, optionally grant `WRITE_SECURE_SETTINGS` via Shizuku or ADB to set `selected_search_engine` directly.
+  - **Zero Dock Flickering**: `LauncherEnginePolicy` and passive `LauncherStateService` keep the dock stable and synchronize widget colors immediately on wallpaper, palette, or day/night theme changes.
+- **Pixel Launcher Aesthetic & Live Preview**:
+  - Classic concentric double-frame pill with Google "G" logo, Microphone, Middle (Gemini / Lens), and AI Circle buttons.
+  - Surface styles: **Deep Ring**, **Pastel**, **Bold Accent**, and **AMOLED Black**.
+  - Icon styles: **Adaptive Emerald**, **Dynamic Monet**, and **Classic Color**.
+  - Pixel-style haptic feedback (`CLOCK_TICK` or `CONTEXT_CLICK`).
+- **Fine-Grained Geometry & Alpha Controls**:
+  - Independent sliders for **Opacity (`30–100%`)**, **Outer Ring Alpha (`0–100%`)**, **Ring Gap (`2–12 dp`)**, and **Corner Radius (`12–31 dp`)**.
 - **Custom Right-Zone Button Remapping**:
-  - Assign custom actions to the Microphone, Middle (Gemini/Lens), and Right (AI Circle) buttons: Google Voice Search, Gemini, Google Lens, Google AI Mode (`udm=50`), ChatGPT, Perplexity, System QR Code Scanner, Brave, Firefox, Cromite, or **any installed application**.
-- **Seamless Dock Integration & Fast App QuickLaunch**:
-  - **Shizuku Integration**: One-tap `WRITE_SECURE_SETTINGS` grant to mount the widget directly inside Pixel Launcher's bottom search dock (`selected_search_engine`).
-  - **Zero Dock Flickering**: Strict invariant in `LauncherStateService` keeps the dock rock-solid during any touch, swipe, or drag gestures without flashing stock Google layouts.
-  - **Enter QuickLaunch & AI Routing (`SearchTapActivity` & `AiSearchDispatcher`)**:
-    - Pressing Enter on matched app names instantly launches the application.
-    - If a question or non-app query is entered, it automatically dispatches to your chosen default AI service (ChatGPT, Perplexity, Gemini, AI Mode, Copilot, Claude, or Google Search) with the prompt pre-filled and ready to answer.
-  - **Wallpaper & Monet Sync**: Automatically refreshes widget colors when the wallpaper or dynamic theme changes.
+  - Assign custom actions to the Microphone, Middle, and AI Circle buttons: Voice Search, Google Gemini, Google Lens, Google AI Mode (`udm=50`), ChatGPT, Perplexity, QR Scanner, Brave, Firefox, Cromite, or **any installed application**.
 
 ---
 
 ## Tech Stack
 
 - **Language**: Kotlin 2.0+
-- **Build System**: Gradle 8.9 (Kotlin DSL `build.gradle.kts`)
+- **Build System**: Gradle (Kotlin DSL `build.gradle.kts`)
 - **Min SDK**: Android 12 (API 31)
-- **Target SDK**: Android 15 (API 35)
+- **Target SDK**: Android 15 (API 35) — full edge-to-edge & display cutout insets
 - **Core Dependencies**:
-  - AndroidX Core KTX, AppCompat, Material Components
-  - Shizuku API (`rikka.shizuku:api`, `rikka.shizuku:provider`)
+  - AndroidX Activity KTX, Core KTX, AppCompat, Material Components
+  - Shizuku API (`rikka.shizuku:api`, `rikka.shizuku:provider`) for optional fallback setup
 
 ---
 
 ## Installation & Setup
 
 ### 1. Download & Install
-Download the latest stable (`v1.4.2`) APK from [GitHub Releases](https://github.com/Nornthenight/ClassicPixelSearch/releases) and install it on your Pixel phone or Pixel Tablet:
+Download the latest APK from [GitHub Releases](https://github.com/Nornthenight/ClassicPixelSearch/releases) (or grab a build artifact from [GitHub Actions](https://github.com/Nornthenight/ClassicPixelSearch/actions)) and install it:
 
 ```bash
-# Install v1.4.2 via ADB
-adb install -r ClassicPixelSearch-v1.4.2.apk
+adb install -r ClassicPixelSearch.apk
 ```
 
-### 2. Configure Permissions
-1. Open the **Pixel Classic Search** settings app from your app drawer.
-2. **Authorize Shizuku** (Recommended): Tap *Authorize Shizuku* if you have Shizuku running for zero-latency background synchronization.
-3. **Accessibility Fallback**: If Shizuku is not active, enable the **Pixel Launcher Synchronizer** accessibility service in Android Settings.
+### 2. Configure Dock Integration
+1. Open **Pixel Search** from your app drawer.
+2. Under **Default Search Engine**, tap **Set as Default Search Engine** to select Pixel Search in the system / Pixel Launcher picker.
+3. **Optional Fallback (Shizuku / ADB)**: If your device or region does not display the native picker, scroll to **Optional Fallback (Shizuku / ADB)** to grant `WRITE_SECURE_SETTINGS` via Shizuku (or `adb shell pm grant com.pixel.classicsearch android.permission.WRITE_SECURE_SETTINGS`) and enable **Replace Native Pixel Launcher Dock**.
+4. **Standalone Widget**: Alternatively, tap **Pin as Standalone Widget** (or add via Home screen → *Widgets* → *Pixel Search*).
 
-### 3. Add the Dock Widget
-Long press on your home screen or dock, tap **Widgets**, find **Pixel Classic Search**, and drag the widget onto your dock or home screen.
+---
+
+## Branches & CI
+
+- **`main`**: Stable releases and tagged builds (`v*`).
+- **`dev`**: Active development branch.
+- **GitHub Actions CI**: Every push and pull request targeting `main` or `dev` runs `./gradlew testDebugUnitTest`, `./gradlew assembleDebug`, and `./gradlew assembleRelease` (`.github/workflows/ci.yml`), uploading debug and release APKs as workflow artifacts.
 
 ---
 
 ## Building from Source
 
 ```bash
-# Clone the repository
 git clone https://github.com/Nornthenight/ClassicPixelSearch.git
 cd ClassicPixelSearch
 
-# Build the release APK
-./gradlew assembleRelease
+# Run unit tests
+./gradlew testDebugUnitTest
 
-# Or build debug APK
+# Build debug / release APKs
 ./gradlew assembleDebug
+./gradlew assembleRelease
 ```
 
 ---
